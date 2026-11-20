@@ -3,7 +3,8 @@
 #
 # Arguments:
 #   --argjson config  engine configuration, with absolute paths:
-#                     {"lib_path", "flow_path", "data_path"}
+#                     {"lib_path", "library_path", "flow_path", "data_path"}
+#                     (library_path: extra jq search path for the filters)
 #   --arg base        absolute directory of the filter that produced the step,
 #                     against which "./..." references are resolved
 #   --argjson has_next true
@@ -102,9 +103,10 @@ def parse_program($format):
     }[$format // "auto"];
 
 # jq search path for the filters run by the engine: the engine library first,
-# then jq's default search path
+# then the configured directories (-L, JQ_LIBRARY_PATH), then jq's default
+# search path
 def jq_search_path:
-    [$config.lib_path, "~/.jq", "$ORIGIN/../lib/jq", "$ORIGIN/../lib"] |
+    [$config.lib_path] + ($config.library_path // []) + ["~/.jq", "$ORIGIN/../lib/jq", "$ORIGIN/../lib"] |
     map("-L \(quote)") | join(" ");
 
 # Runs $script; if the envelope it prints has key $key ("result" or "error"),

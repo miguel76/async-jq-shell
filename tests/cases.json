@@ -883,5 +883,85 @@
     "stdin_jq": "1, 2",
     "expect_exit": 1,
     "stderr_contains": "exactly one JSON value"
+  },
+  {
+    "name": "library-path-missing",
+    "filter": "import-module",
+    "expect_error": {
+      "type": "filter",
+      "message": "module not found: acme/strutil"
+    }
+  },
+  {
+    "name": "library-path-option",
+    "filter": "import-module",
+    "options": [
+      "-L",
+      "modules"
+    ],
+    "expect": {
+      "result": "HI!"
+    }
+  },
+  {
+    "name": "library-path-long-option",
+    "filter": "import-module",
+    "options": [
+      "--library-path",
+      "modules"
+    ],
+    "expect": {
+      "result": "HI!"
+    }
+  },
+  {
+    "name": "library-path-sync-call",
+    "filter": "sync-import-module",
+    "options": [
+      "-L",
+      "modules"
+    ],
+    "expect": {
+      "result": "HEY!"
+    }
+  },
+  {
+    "name": "library-path-env",
+    "filter": "import-module",
+    "env": {
+      "JQ_LIBRARY_PATH": "modules"
+    },
+    "expect": {
+      "result": "HI!"
+    }
+  },
+  {
+    "name": "library-path-env-skips-missing",
+    "filter": "import-module",
+    "env": {
+      "JQ_LIBRARY_PATH": "/nonexistent::modules"
+    },
+    "expect": {
+      "result": "HI!"
+    }
+  },
+  {
+    "name": "library-path-option-missing-dir",
+    "filter": "import-module",
+    "options": [
+      "-L",
+      "nonexistent"
+    ],
+    "expect_exit": 1,
+    "stderr_contains": "no such directory: nonexistent"
+  },
+  {
+    "name": "engine-library-first",
+    "filter": "resolve-filter",
+    "options": [
+      "-L",
+      "modules"
+    ],
+    "expect_jq": ".result.r == \"<tests>/flow/pkg\""
   }
 ]

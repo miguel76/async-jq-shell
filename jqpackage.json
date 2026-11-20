@@ -1,0 +1,10 @@
+{
+  "name": "async-jq-shell",
+  "version": "0.1.0",
+  "description": "Asynchronous jq filters, run by an engine in POSIX sh and jq",
+  "main": null,
+  "bin": {
+    "async-jq": "bin/async-jq"
+  },
+  "dependencies": {}
+}
