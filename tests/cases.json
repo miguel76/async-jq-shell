@@ -1,0 +1,887 @@
+[
+  {
+    "name": "error-step",
+    "filter": "error-step",
+    "expect": {
+      "error": "boom"
+    }
+  },
+  {
+    "name": "several-steps",
+    "filter": "several-steps",
+    "expect": {
+      "result": [
+        1,
+        2
+      ]
+    }
+  },
+  {
+    "name": "array-first-error",
+    "filter": "array-first-error",
+    "expect": {
+      "error": "first"
+    }
+  },
+  {
+    "name": "nested-arrays",
+    "filter": "nested-arrays",
+    "expect": {
+      "result": [
+        1,
+        2,
+        [
+          3,
+          "hello",
+          1
+        ]
+      ]
+    }
+  },
+  {
+    "name": "returns-invalid-step",
+    "filter": "returns-invalid-step",
+    "expect_error": {
+      "type": "step",
+      "message": "invalid step"
+    }
+  },
+  {
+    "name": "shell-text-output",
+    "filter": "shell-text-output",
+    "expect": {
+      "result": "hello"
+    }
+  },
+  {
+    "name": "shell-empty-output",
+    "filter": "shell-empty-output",
+    "expect": {
+      "result": ""
+    }
+  },
+  {
+    "name": "shell-newlines-only",
+    "filter": "shell-newlines-only",
+    "expect": {
+      "result": ""
+    }
+  },
+  {
+    "name": "shell-quoting",
+    "filter": "shell-quoting",
+    "expect": {
+      "result": "it's $HOME"
+    }
+  },
+  {
+    "name": "result-quoting",
+    "filter": "result-quoting",
+    "expect": {
+      "result": "it's $HOME (x) \"q\""
+    }
+  },
+  {
+    "name": "shell-trailing-comment",
+    "filter": "shell-trailing-comment",
+    "expect": {
+      "result": "hi"
+    }
+  },
+  {
+    "name": "shell-failure",
+    "filter": "shell-failure",
+    "expect": {
+      "error": {
+        "type": "shell",
+        "command": "echo x; false",
+        "status": 1
+      }
+    }
+  },
+  {
+    "name": "shell-failure-nested",
+    "filter": "shell-failure-nested",
+    "expect": {
+      "error": {
+        "type": "shell",
+        "command": "false",
+        "status": 1
+      }
+    }
+  },
+  {
+    "name": "shell-ignores-input",
+    "filter": "shell-ignores-input",
+    "expect": {
+      "result": {
+        "got": "shell-ignores-input"
+      }
+    }
+  },
+  {
+    "name": "next-relative",
+    "filter": "a/next-relative",
+    "expect": {
+      "result": {
+        "sib": 1
+      }
+    }
+  },
+  {
+    "name": "next-parent",
+    "filter": "a/next-parent",
+    "expect": {
+      "result": {
+        "got": 2
+      }
+    }
+  },
+  {
+    "name": "next-without-main",
+    "filter": "next-without-main",
+    "expect": {
+      "result": {
+        "got": 3
+      }
+    }
+  },
+  {
+    "name": "next-array-fan-out",
+    "filter": "next-array-fan-out",
+    "expect": {
+      "result": [
+        30,
+        4,
+        "const"
+      ]
+    }
+  },
+  {
+    "name": "filter-runtime-error",
+    "filter": "filter-runtime-error",
+    "expect_error": {
+      "type": "filter",
+      "filter": "<tests>/flow/badfilter.jq",
+      "status": 5,
+      "message": "cannot be added"
+    }
+  },
+  {
+    "name": "debug-passthrough",
+    "filter": "debug-passthrough",
+    "expect": {
+      "result": 1
+    },
+    "stderr_contains": "[\"DEBUG:\",\"dbg msg\"]"
+  },
+  {
+    "name": "call-continuation",
+    "filter": "call-continuation",
+    "expect": {
+      "result": {
+        "got": 105
+      }
+    }
+  },
+  {
+    "name": "call-returns-array",
+    "filter": "call-returns-array",
+    "expect": {
+      "result": {
+        "got": [
+          1,
+          2
+        ]
+      }
+    }
+  },
+  {
+    "name": "continuation-keeps-caller-base",
+    "filter": "a/continuation-keeps-caller-base",
+    "expect": {
+      "result": {
+        "sib": 7
+      }
+    }
+  },
+  {
+    "name": "call-not-found",
+    "filter": "call-not-found",
+    "expect": {
+      "error": {
+        "type": "filter",
+        "filter": "<tests>/flow/nonexistent",
+        "message": "filter not found",
+        "candidates": [
+          "<tests>/flow/nonexistent.jq",
+          "<tests>/flow/nonexistent/nonexistent.jq"
+        ]
+      }
+    }
+  },
+  {
+    "name": "call-resolved-filter",
+    "filter": "call-resolved-filter",
+    "expect": {
+      "result": {
+        "helper": "pkg/pkg.jq",
+        "here": "pkg/helper.jq"
+      }
+    }
+  },
+  {
+    "name": "on-error-recover",
+    "filter": "on-error-recover",
+    "expect": {
+      "result": {
+        "recovered": {
+          "type": "shell",
+          "command": "false",
+          "status": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "on-error-reraise",
+    "filter": "on-error-reraise",
+    "expect": {
+      "error": {
+        "wrapped": {
+          "type": "shell",
+          "command": "false",
+          "status": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "on-error-retry",
+    "filter": "on-error-retry",
+    "expect": {
+      "result": "fallback"
+    }
+  },
+  {
+    "name": "on-error-handler-fails",
+    "filter": "on-error-handler-fails",
+    "expect_error": {
+      "type": "filter",
+      "filter": "<tests>/flow/badfilter.jq",
+      "message": "cannot be added"
+    }
+  },
+  {
+    "name": "on-error-not-triggered",
+    "filter": "on-error-not-triggered",
+    "expect": {
+      "result": "ok"
+    }
+  },
+  {
+    "name": "on-error-array",
+    "filter": "on-error-array",
+    "expect": {
+      "result": {
+        "recovered": {
+          "type": "shell",
+          "command": "false",
+          "status": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "on-error-step-handler",
+    "filter": "on-error-step-handler",
+    "expect": {
+      "result": "fallback"
+    }
+  },
+  {
+    "name": "on-error-on-call",
+    "filter": "on-error-on-call",
+    "expect": {
+      "result": {
+        "got": {
+          "recovered": "callee failed"
+        }
+      }
+    }
+  },
+  {
+    "name": "on-error-not-covering-next",
+    "filter": "on-error-not-covering-next",
+    "expect": {
+      "error": "in continuation"
+    }
+  },
+  {
+    "name": "callee-handler-not-covering-continuation",
+    "filter": "callee-handler-not-covering-continuation",
+    "expect": {
+      "error": "cont"
+    }
+  },
+  {
+    "name": "sync-call-in-next",
+    "filter": "sync-call-in-next",
+    "expect": {
+      "result": 40
+    }
+  },
+  {
+    "name": "sync-next-error",
+    "filter": "sync-next-error",
+    "expect_error": {
+      "type": "filter",
+      "filter": "<tests>/flow/syncerr.jq",
+      "status": 5,
+      "message": "sync boom"
+    }
+  },
+  {
+    "name": "sync-call-no-output",
+    "filter": "sync-call-no-output",
+    "expect": {
+      "error": {
+        "type": "sync_call",
+        "filter": "<tests>/flow/none.jq",
+        "message": "expected exactly one output, got 0"
+      }
+    }
+  },
+  {
+    "name": "sync-call-two-outputs",
+    "filter": "sync-call-two-outputs",
+    "expect": {
+      "error": {
+        "type": "sync_call",
+        "filter": "<tests>/flow/two.jq",
+        "message": "expected exactly one output, got 2"
+      }
+    }
+  },
+  {
+    "name": "sync-next-nested",
+    "filter": "sync-next-nested",
+    "expect": {
+      "result": 41
+    }
+  },
+  {
+    "name": "fetch-auto-json",
+    "filter": "fetch-auto-json",
+    "expect": {
+      "result": {
+        "x": 1
+      }
+    }
+  },
+  {
+    "name": "fetch-auto-text",
+    "filter": "fetch-auto-text",
+    "expect": {
+      "result": "hello\nworld\n"
+    }
+  },
+  {
+    "name": "fetch-format-text",
+    "filter": "fetch-format-text",
+    "expect": {
+      "result": "{\"x\": 1}\n"
+    }
+  },
+  {
+    "name": "fetch-format-json-invalid",
+    "filter": "fetch-format-json-invalid",
+    "expect_error": {
+      "type": "parse",
+      "format": "json"
+    }
+  },
+  {
+    "name": "fetch-auto-invalid-json",
+    "filter": "fetch-auto-invalid-json",
+    "expect": {
+      "result": "not json {\n"
+    }
+  },
+  {
+    "name": "fetch-missing",
+    "filter": "fetch-missing",
+    "expect": {
+      "error": {
+        "type": "fetch",
+        "file": "<tests>/data/missing",
+        "message": "file not found"
+      }
+    }
+  },
+  {
+    "name": "fetch-relative",
+    "filter": "a/fetch-relative",
+    "expect": {
+      "result": 43
+    }
+  },
+  {
+    "name": "fetch-url",
+    "filter": "fetch-url",
+    "expect": {
+      "error": {
+        "type": "fetch",
+        "file": "https://example.org/x",
+        "message": "remote files are not supported yet"
+      }
+    }
+  },
+  {
+    "name": "resolve-file",
+    "filter": "a/resolve-file",
+    "expect": {
+      "result": [
+        "<tests>/flow/a/x.csv",
+        "<tests>/data/y",
+        "<tests>/flow/a/z",
+        "/tmp/q",
+        "<tests>/w"
+      ]
+    }
+  },
+  {
+    "name": "resolve-file-in-shell",
+    "filter": "resolve-file-in-shell",
+    "expect": {
+      "result": {
+        "got": {
+          "x": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "resolve-filter",
+    "filter": "resolve-filter",
+    "expect": {
+      "result": {
+        "r": "<tests>/flow/pkg",
+        "c": [
+          "<tests>/flow/pkg.jq",
+          "<tests>/flow/pkg/pkg.jq"
+        ],
+        "cj": [
+          "<tests>/flow/x.jq"
+        ]
+      }
+    }
+  },
+  {
+    "name": "resolve-file-in-directory-filter",
+    "filter": "resolve-file-in-directory-filter",
+    "expect": {
+      "result": "<tests>/flow/pkg/sub/data.txt"
+    }
+  },
+  {
+    "name": "lookup-directory",
+    "filter": "lookup-directory",
+    "expect": {
+      "result": {
+        "helper": "pkg/pkg.jq",
+        "here": "pkg/helper.jq"
+      }
+    }
+  },
+  {
+    "name": "lookup-file-first",
+    "filter": "lookup-file-first",
+    "expect": {
+      "result": "both.jq"
+    }
+  },
+  {
+    "name": "lookup-explicit-path",
+    "filter": "lookup-explicit-path",
+    "expect": {
+      "result": "both/both.jq"
+    }
+  },
+  {
+    "name": "lookup-nested-directory",
+    "filter": "lookup-nested-directory",
+    "expect": {
+      "result": "pkg/sub/sub.jq"
+    }
+  },
+  {
+    "name": "lookup-relative-directory",
+    "filter": "lookup-relative-directory",
+    "expect": {
+      "result": "pkg/sub/sub.jq"
+    }
+  },
+  {
+    "name": "lookup-sync-call-directory",
+    "filter": "lookup-sync-call-directory",
+    "expect": {
+      "result": "hi!"
+    }
+  },
+  {
+    "name": "lookup-next-directory",
+    "filter": "lookup-next-directory",
+    "expect": {
+      "result": "pkg/sub/sub.jq"
+    }
+  },
+  {
+    "name": "lookup-explicit-jq",
+    "filter": "lookup-explicit-jq",
+    "expect": {
+      "result": {
+        "helper": "pkg/pkg.jq",
+        "here": "pkg/helper.jq"
+      }
+    }
+  },
+  {
+    "name": "lookup-explicit-jq-no-fallback",
+    "filter": "lookup-explicit-jq-no-fallback",
+    "expect": {
+      "error": {
+        "type": "filter",
+        "filter": "<tests>/flow/pkg.jq",
+        "message": "filter not found",
+        "candidates": [
+          "<tests>/flow/pkg.jq"
+        ]
+      }
+    }
+  },
+  {
+    "name": "lookup-not-found",
+    "filter": "lookup-not-found",
+    "expect": {
+      "error": {
+        "type": "filter",
+        "filter": "<tests>/flow/nothere",
+        "message": "filter not found",
+        "candidates": [
+          "<tests>/flow/nothere.jq",
+          "<tests>/flow/nothere/nothere.jq"
+        ]
+      }
+    }
+  },
+  {
+    "name": "lookup-entry-directory",
+    "filter": "pkg",
+    "expect": {
+      "result": {
+        "helper": "pkg/pkg.jq",
+        "here": "pkg/helper.jq"
+      }
+    }
+  },
+  {
+    "name": "lookup-entry-relative-to-cwd",
+    "filter": "./flow/pkg",
+    "expect": {
+      "result": {
+        "helper": "pkg/pkg.jq",
+        "here": "pkg/helper.jq"
+      }
+    }
+  },
+  {
+    "name": "input-call",
+    "filter": "input-call",
+    "expect": {
+      "result": {
+        "got": {
+          "a": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "input-sync-call",
+    "filter": "input-sync-call",
+    "expect": {
+      "result": 50
+    }
+  },
+  {
+    "name": "input-overrides-next-input",
+    "filter": "input-overrides-next-input",
+    "expect": {
+      "result": {
+        "got": "override"
+      }
+    }
+  },
+  {
+    "name": "input-on-array-action",
+    "filter": "input-on-array-action",
+    "expect": {
+      "result": [
+        30,
+        4
+      ]
+    }
+  },
+  {
+    "name": "input-alone",
+    "filter": "input-alone",
+    "expect": {
+      "result": 3
+    }
+  },
+  {
+    "name": "input-with-on-error-and-next",
+    "filter": "input-with-on-error-and-next",
+    "expect_jq": ".result.got.recovered | .type == \"filter\" and (.message | contains(\"sync boom\"))"
+  },
+  {
+    "name": "args-call",
+    "filter": "args-call",
+    "expect": {
+      "result": {
+        "rule": "subclass",
+        "n": 2,
+        "input": 10,
+        "named": {
+          "rule": "subclass",
+          "n": 2
+        }
+      }
+    }
+  },
+  {
+    "name": "args-sync-call",
+    "filter": "args-sync-call",
+    "expect": {
+      "result": 12
+    }
+  },
+  {
+    "name": "args-missing-variable",
+    "filter": "args-missing-variable",
+    "expect_error": {
+      "type": "filter",
+      "filter": "<tests>/flow/b/needsarg.jq",
+      "status": 3,
+      "message": "$missing is not defined"
+    }
+  },
+  {
+    "name": "invalid-unknown-field",
+    "filter": "invalid-unknown-field",
+    "expect_error": {
+      "type": "step",
+      "message": "unknown field(s) nxt"
+    }
+  },
+  {
+    "name": "invalid-two-main-fields",
+    "filter": "invalid-two-main-fields",
+    "expect_error": {
+      "type": "step",
+      "message": "a step can have only one of"
+    }
+  },
+  {
+    "name": "invalid-format-on-call",
+    "filter": "invalid-format-on-call",
+    "expect_error": {
+      "type": "step",
+      "message": "format can only be used with shell or fetch_file"
+    }
+  },
+  {
+    "name": "invalid-format",
+    "filter": "invalid-format",
+    "expect_error": {
+      "type": "step",
+      "message": "unknown format"
+    }
+  },
+  {
+    "name": "invalid-next-and-sync-next",
+    "filter": "invalid-next-and-sync-next",
+    "expect_error": {
+      "type": "step",
+      "message": "can't have both next and sync_next"
+    }
+  },
+  {
+    "name": "invalid-input-with-result",
+    "filter": "invalid-input-with-result",
+    "expect_error": {
+      "type": "step",
+      "message": "input can't be used with result or error"
+    }
+  },
+  {
+    "name": "invalid-args-on-shell",
+    "filter": "invalid-args-on-shell",
+    "expect_error": {
+      "type": "step",
+      "message": "args can only be used with call or sync_call"
+    }
+  },
+  {
+    "name": "invalid-args-name",
+    "filter": "invalid-args-name",
+    "expect_error": {
+      "type": "step",
+      "message": "valid jq variable names"
+    }
+  },
+  {
+    "name": "invalid-args-reserved",
+    "filter": "invalid-args-reserved",
+    "expect_error": {
+      "type": "step",
+      "message": "are reserved"
+    }
+  },
+  {
+    "name": "invalid-args-not-object",
+    "filter": "invalid-args-not-object",
+    "expect_error": {
+      "type": "step",
+      "message": "args must be an object"
+    }
+  },
+  {
+    "name": "large-continuation",
+    "filter": "large-continuation",
+    "expect_jq": ".result == (\"a\" * 200000)"
+  },
+  {
+    "name": "large-input",
+    "filter": "large-input",
+    "expect": {
+      "result": 300000
+    }
+  },
+  {
+    "name": "large-error-message",
+    "filter": "large-error-message",
+    "expect_jq": ".error.type == \"filter\" and (.error.message | length) > 200000",
+    "expect_exit": 1
+  },
+  {
+    "name": "large-shell-command",
+    "filter": "large-shell-command",
+    "expect_jq": ".error.type == \"shell\" and .error.status == 3 and (.error.command | length) > 200000",
+    "expect_exit": 1
+  },
+  {
+    "name": "cli-default-input",
+    "filter": "echoin",
+    "expect": {
+      "result": {
+        "top_input": null,
+        "args": {}
+      }
+    }
+  },
+  {
+    "name": "cli-input",
+    "filter": "echoin",
+    "options": [
+      "--input",
+      "{\"x\":[1,2]}"
+    ],
+    "expect": {
+      "result": {
+        "top_input": {
+          "x": [
+            1,
+            2
+          ]
+        },
+        "args": {}
+      }
+    }
+  },
+  {
+    "name": "cli-stdin",
+    "filter": "echoin",
+    "options": [
+      "--stdin"
+    ],
+    "stdin": "from stdin",
+    "expect": {
+      "result": {
+        "top_input": "from stdin",
+        "args": {}
+      }
+    }
+  },
+  {
+    "name": "cli-args",
+    "filter": "echoin",
+    "options": [
+      "--args",
+      "{\"p\":1}",
+      "--input",
+      "2"
+    ],
+    "expect": {
+      "result": {
+        "top_input": 2,
+        "args": {
+          "p": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "cli-large-stdin",
+    "filter": "len",
+    "options": [
+      "--stdin"
+    ],
+    "stdin_jq": "\"x\" * 500000",
+    "expect": {
+      "result": 500000
+    }
+  },
+  {
+    "name": "cli-invalid-args",
+    "filter": "echoin",
+    "options": [
+      "--args",
+      "[1]"
+    ],
+    "expect_error": {
+      "type": "step",
+      "message": "args must be an object"
+    }
+  },
+  {
+    "name": "cli-invalid-input",
+    "filter": "echoin",
+    "options": [
+      "--input",
+      "nope"
+    ],
+    "expect_exit": 1,
+    "stderr_contains": "Usage:"
+  },
+  {
+    "name": "cli-several-stdin-values",
+    "filter": "echoin",
+    "options": [
+      "--stdin"
+    ],
+    "stdin_jq": "1, 2",
+    "expect_exit": 1,
+    "stderr_contains": "exactly one JSON value"
+  }
+]
