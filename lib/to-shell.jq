@@ -3,7 +3,7 @@
 #
 # Arguments:
 #   --argjson config  engine configuration, with absolute paths:
-#                     {"engine_path", "flow_path", "data_path"}
+#                     {"lib_path", "flow_path", "data_path"}
 #   --arg base        absolute directory of the filter that produced the step,
 #                     against which "./..." references are resolved
 #   --argjson has_next true
@@ -16,7 +16,7 @@
 # the shell variable $__in and prints exactly one JSON envelope on stdout:
 # either {"result": X} or {"error": E}.
 
-include "engine";
+include "async-jq";
 
 def quote: tostring | @sh;
 
@@ -104,7 +104,7 @@ def parse_program($format):
 # jq search path for the filters run by the engine: the engine library first,
 # then jq's default search path
 def jq_search_path:
-    ["\($config.engine_path)/lib", "~/.jq", "$ORIGIN/../lib/jq", "$ORIGIN/../lib"] |
+    [$config.lib_path, "~/.jq", "$ORIGIN/../lib/jq", "$ORIGIN/../lib"] |
     map("-L \(quote)") | join(" ");
 
 # Runs $script; if the envelope it prints has key $key ("result" or "error"),
@@ -152,7 +152,7 @@ def call_script($ref; $args; $next):
         "if __script=$( { " +
             (if $next then "printf '%s\\n' \($next | tojson | quote); " else "" end) +
             "printf '%s\\n' \"$__out\"; } | " +
-            "jq -rn -L \("\($config.engine_path)/lib" | quote) -f \("\($config.engine_path)/to-shell.jq" | quote) " +
+            "jq -rn -L \($config.lib_path | quote) -f \("\($config.lib_path)/to-shell.jq" | quote) " +
             "--argjson config \($config | tojson | quote) --arg base \"$__base\"" +
             (if $next then " --argjson has_next true" else "" end) +
         " ); then __in=null; eval \"$__script\"; " +

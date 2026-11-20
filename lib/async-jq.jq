@@ -1,6 +1,6 @@
-# Engine library, available to every filter run by the engine:
+# async-jq library, available to every filter run by the engine:
 #
-#   include "engine";
+#   include "async-jq";
 #
 # Public API:
 #   resolve_file, resolve_file($ref)      absolute path of a data file
@@ -70,7 +70,7 @@ def _resolve($base; $root):
 # extension, unless given); then, by the engine at execution time, to the
 # first existing file among its candidates (`_filter_candidates`).
 
-# $config: engine configuration ({flow_path, data_path, ...})
+# $config: engine configuration ({lib_path, flow_path, data_path})
 def resolve_filter_ref($base; $config):
     if _is_url then error("remote filters are not supported: \(.)") else . end |
     _resolve($base; $config.flow_path);
