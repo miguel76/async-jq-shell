@@ -1,0 +1,85 @@
+#!/bin/sh
+# async-jq: runs an asynchronous jq filter (see README.md and SPEC.md).
+#
+# Usage: async-jq [options] <filter>
+#
+# Calls <filter> (resolved like a `call` reference: "main" is
+# $FLOW_PATH/main.jq or $FLOW_PATH/main/main.jq, "./x" is relative to the
+# current directory) and recursively executes the steps it returns.
+# Prints the final result (as JSON) on stdout, or the error on stderr
+# (exit status 1).
+#
+# Options:
+#   --input JSON   input of the filter (default: null)
+#   --stdin        read the input of the filter (one JSON value) from stdin
+#   --args JSON    object of named arguments for the filter (as `args` in a
+#                  call step)
+#   --envelope     print the final envelope, {"result": ...} or
+#                  {"error": ...}, on stdout (the exit status is still 1 on
+#                  error)
+#   -h, --help     show this help
+#
+# Configuration (environment variables, relative to the current directory):
+#   FLOW_PATH  root for filter references (default: flow)
+#   DATA_PATH  root for data file references (default: .)
+
+usage() {
+    echo "Usage: $0 [--input JSON | --stdin] [--args JSON] [--envelope] <filter>" >&2
+    exit 1
+}
+
+INPUT=null
+ARGS=null
+ENVELOPE_OUTPUT=
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --input) [ $# -ge 2 ] || usage; INPUT=$2; shift 2 ;;
+        --stdin) INPUT=$(cat) || exit 1; shift ;;
+        --args) [ $# -ge 2 ] || usage; ARGS=$2; shift 2 ;;
+        --envelope) ENVELOPE_OUTPUT=1; shift ;;
+        -h|--help) sed -n '2,/^$/s/^# \{0,1\}//p' "$0"; exit 0 ;;
+        -*) usage ;;
+        *) break ;;
+    esac
+done
+[ $# -eq 1 ] || usage
+
+# the library is in ../lib relative to this script (following symlinks, so
+# that the script can be linked from a directory in the PATH)
+SELF=$0
+while [ -L "$SELF" ]; do
+    LINK=$(readlink "$SELF") || exit 1
+    case "$LINK" in
+        /*) SELF=$LINK ;;
+        *) SELF=$(dirname "$SELF")/$LINK ;;
+    esac
+done
+LIB_PATH=$(cd "$(dirname "$SELF")/../lib" && pwd) || exit 1
+FLOW_PATH=$(cd "${FLOW_PATH:-flow}" && pwd) || exit 1
+DATA_PATH=$(cd "${DATA_PATH:-.}" && pwd) || exit 1
+
+CONFIG=$(jq -nc --arg lib_path "$LIB_PATH" --arg flow_path "$FLOW_PATH" --arg data_path "$DATA_PATH" \
+    '{lib_path: $lib_path, flow_path: $flow_path, data_path: $data_path}') || exit 1
+
+# the input goes to jq on stdin (it may be large), and must be one JSON value
+STEP=$(printf '%s\n' "$INPUT" | jq -sc --arg call "$1" --argjson args "$ARGS" '
+    if length != 1 then error("the input must be exactly one JSON value, got \(length)") else .[0] end |
+    {call: $call, input: .} + (if $args == null then {} else {args: $args} end)') || usage
+
+CMD=$(printf '%s\n' "$STEP" |
+    jq -rn -L "$LIB_PATH" -f "$LIB_PATH/to-shell.jq" --argjson config "$CONFIG" --arg base "$PWD") || exit 1
+ENVELOPE=$(__in=null; eval "$CMD")
+
+if printf '%s\n' "$ENVELOPE" | jq -e 'has("error")' >/dev/null; then
+    if [ -n "$ENVELOPE_OUTPUT" ]; then
+        printf '%s\n' "$ENVELOPE"
+    else
+        printf '%s\n' "$ENVELOPE" | jq -r '"Error: \(.error | if type == "string" then . else tojson end)"' >&2
+    fi
+    exit 1
+fi
+if [ -n "$ENVELOPE_OUTPUT" ]; then
+    printf '%s\n' "$ENVELOPE"
+else
+    printf '%s\n' "$ENVELOPE" | jq '.result'
+fi
