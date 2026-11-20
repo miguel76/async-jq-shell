@@ -15,6 +15,7 @@
 #   name          unique name
 #   filter        the filter to run
 #   options       (optional) array of extra options for async-jq
+#   env           (optional) object of environment variables to set
 #   stdin         (optional) JSON value given (as text) on stdin
 #   stdin_jq      (optional) jq expression whose value is given on stdin
 #   expect        (optional) the expected envelope, exactly
@@ -61,10 +62,12 @@ while [ "$i" -lt "$COUNT" ]; do
         : > "$TMP/stdin"
     fi
 
-    # run
-    eval "set -- $(printf '%s' "$TC" | jq -r '(.options // []) | map(@sh) | join(" ")')"
-    "$ASYNC_JQ" --envelope "$@" "$(printf '%s' "$TC" | jq -r '.filter')" \
-        < "$TMP/stdin" > "$TMP/stdout" 2> "$TMP/stderr"
+    # run, through env to set the case's environment variables:
+    #   env [VAR=VALUE]... $ASYNC_JQ --envelope [OPTION]... FILTER
+    eval "set -- $(printf '%s' "$TC" | jq -r --arg async_jq "$ASYNC_JQ" '
+        [((.env // {}) | to_entries[] | "\(.key)=\(.value)"),
+         $async_jq, "--envelope", (.options // [])[], .filter] | map(@sh) | join(" ")')"
+    env "$@" < "$TMP/stdin" > "$TMP/stdout" 2> "$TMP/stderr"
     STATUS=$?
     jq -c --arg tests "$TESTS" 'walk(if type == "string" then split($tests) | join("<tests>") else . end)' \
         "$TMP/stdout" > "$TMP/actual" 2>/dev/null || : > "$TMP/actual"

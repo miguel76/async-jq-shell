@@ -41,7 +41,19 @@ the link):
 ln -s "$PWD/bin/async-jq" ~/.local/bin/async-jq
 ```
 
-In a project, it can also be added as a git submodule, pinned to a release:
+In a project, it can be installed with [jqpm](https://github.com/miguel76/jqpm),
+which links the command as `jq_modules/.bin/async-jq`:
+
+```bash
+jqpm add miguel76/async-jq-shell
+jqpm exec async-jq main          # or: jq_modules/.bin/async-jq -L jq_modules main
+```
+
+`jqpm exec` sets `JQ_LIBRARY_PATH` to `jq_modules`, so that the filters can
+also import the other packages installed with jqpm (see the `-L` option
+below).
+
+Or it can be added as a git submodule, pinned to a release:
 
 ```bash
 git submodule add https://github.com/miguel76/async-jq-shell vendor/async-jq-shell
@@ -51,7 +63,7 @@ vendor/async-jq-shell/bin/async-jq main
 ## Usage
 
 ```
-async-jq [--input JSON | --stdin] [--args JSON] [--envelope] <filter>
+async-jq [--input JSON | --stdin] [--args JSON] [--envelope] [-L DIR]... <filter>
 ```
 
 Calls `<filter>` and executes the steps it returns (see [`SPEC.md`](SPEC.md)).
@@ -69,6 +81,7 @@ of the filters go to stderr.
 | `--stdin` | read the input of the filter (exactly one JSON value) from stdin |
 | `--args JSON` | named arguments for the filter (an object, as `args` in a `call` step) |
 | `--envelope` | print the final outcome as an envelope, `{"result": ...}` or `{"error": ...}`, on stdout (the exit status is still 1 on error) |
+| `-L DIR`, `--library-path DIR` | add `DIR` to the jq search path of the filters, as jq's `-L` (can be repeated) |
 | `-h`, `--help` | show the help |
 
 For example:
@@ -84,6 +97,7 @@ directory):
 |---|---|---|
 | `FLOW_PATH` | `flow` | root of the application's filters |
 | `DATA_PATH` | `.` | root of the application's data files |
+| `JQ_LIBRARY_PATH` | | colon-separated directories added to the jq search path of the filters, after the `-L` ones (directories that don't exist are skipped); set by `jqpm exec` |
 
 ## Implementation notes
 
@@ -110,7 +124,9 @@ passed to the filters as `--argjson`.
 
 The engine passes its context to the filters it runs as
 `--argjson engine_context '{"base": <directory of the filter>, "config": {...}}'`,
-and runs them with the jq search path `lib/`, then jq's default search path.
+and runs them with the jq search path: `lib/` (so that `include "async-jq";`
+always finds the engine's library), then the `-L` directories, then
+`JQ_LIBRARY_PATH`, then jq's default search path.
 
 ### Files
 
@@ -136,7 +152,7 @@ tests/run.sh lookup     # the cases whose name contains "lookup"
 
 The cases are in `tests/cases.json` (the format is described in
 `tests/run.sh`), with their filters in `tests/flow/` and data in
-`tests/data/`. To test another implementation of the spec, set `ASYNC_JQ` to
+`tests/data/` (and jq modules for the `-L` cases in `tests/modules/`). To test another implementation of the spec, set `ASYNC_JQ` to
 its command, which must accept the options above, including `--envelope`.
 
 ## Possible improvements

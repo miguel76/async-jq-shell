@@ -17,26 +17,41 @@
 #   --envelope     print the final envelope, {"result": ...} or
 #                  {"error": ...}, on stdout (the exit status is still 1 on
 #                  error)
+#   -L DIR, --library-path DIR
+#                  add DIR to the jq search path of the filters (as jq's -L;
+#                  can be repeated)
 #   -h, --help     show this help
 #
 # Configuration (environment variables, relative to the current directory):
-#   FLOW_PATH  root for filter references (default: flow)
-#   DATA_PATH  root for data file references (default: .)
+#   FLOW_PATH        root for filter references (default: flow)
+#   DATA_PATH        root for data file references (default: .)
+#   JQ_LIBRARY_PATH  colon-separated directories added to the jq search path
+#                    of the filters, after the -L ones (set e.g. by
+#                    `jqpm exec`; directories that don't exist are skipped)
 
 usage() {
-    echo "Usage: $0 [--input JSON | --stdin] [--args JSON] [--envelope] <filter>" >&2
+    echo "Usage: $0 [--input JSON | --stdin] [--args JSON] [--envelope] [-L DIR]... <filter>" >&2
     exit 1
 }
 
 INPUT=null
 ARGS=null
 ENVELOPE_OUTPUT=
+LIBRARY_DIRS=
+add_library_dir() {
+    LIBRARY_DIRS="$LIBRARY_DIRS$1
+"
+}
 while [ $# -gt 0 ]; do
     case "$1" in
         --input) [ $# -ge 2 ] || usage; INPUT=$2; shift 2 ;;
         --stdin) INPUT=$(cat) || exit 1; shift ;;
         --args) [ $# -ge 2 ] || usage; ARGS=$2; shift 2 ;;
         --envelope) ENVELOPE_OUTPUT=1; shift ;;
+        -L|--library-path)
+            [ $# -ge 2 ] || usage
+            DIR=$(CDPATH= cd -- "$2" 2>/dev/null && pwd) || { echo "$0: no such directory: $2" >&2; exit 1; }
+            add_library_dir "$DIR"; shift 2 ;;
         -h|--help) sed -n '2,/^$/s/^# \{0,1\}//p' "$0"; exit 0 ;;
         -*) usage ;;
         *) break ;;
@@ -54,12 +69,25 @@ while [ -L "$SELF" ]; do
         *) SELF=$(dirname "$SELF")/$LINK ;;
     esac
 done
-LIB_PATH=$(cd "$(dirname "$SELF")/../lib" && pwd) || exit 1
-FLOW_PATH=$(cd "${FLOW_PATH:-flow}" && pwd) || exit 1
-DATA_PATH=$(cd "${DATA_PATH:-.}" && pwd) || exit 1
+LIB_PATH=$(CDPATH= cd -- "$(dirname "$SELF")/../lib" && pwd) || exit 1
+FLOW_PATH=$(CDPATH= cd -- "${FLOW_PATH:-flow}" && pwd) || exit 1
+DATA_PATH=$(CDPATH= cd -- "${DATA_PATH:-.}" && pwd) || exit 1
 
-CONFIG=$(jq -nc --arg lib_path "$LIB_PATH" --arg flow_path "$FLOW_PATH" --arg data_path "$DATA_PATH" \
-    '{lib_path: $lib_path, flow_path: $flow_path, data_path: $data_path}') || exit 1
+# JQ_LIBRARY_PATH: colon-separated, after the -L directories
+REST=$JQ_LIBRARY_PATH
+while [ -n "$REST" ]; do
+    case "$REST" in
+        *:*) ENTRY=${REST%%:*}; REST=${REST#*:} ;;
+        *) ENTRY=$REST; REST= ;;
+    esac
+    if [ -n "$ENTRY" ] && DIR=$(CDPATH= cd -- "$ENTRY" 2>/dev/null && pwd); then
+        add_library_dir "$DIR"
+    fi
+done
+
+CONFIG=$(printf '%s' "$LIBRARY_DIRS" | jq -Rsc --arg lib_path "$LIB_PATH" --arg flow_path "$FLOW_PATH" --arg data_path "$DATA_PATH" '
+    {lib_path: $lib_path, library_path: (split("\n") | map(select(. != ""))),
+     flow_path: $flow_path, data_path: $data_path}') || exit 1
 
 # the input goes to jq on stdin (it may be large), and must be one JSON value
 STEP=$(printf '%s\n' "$INPUT" | jq -sc --arg call "$1" --argjson args "$ARGS" '
