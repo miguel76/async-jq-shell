@@ -103,6 +103,11 @@ def check:
 
 # ---------------------------------------------------------------------------
 # Compilation
+#
+# Portability: the generated code is often nested in command substitutions
+# $( ... ). There, bash before 4.0 (e.g. /bin/sh on macOS) takes the ")"
+# ending a case pattern for the end of the substitution, so case patterns are
+# written with a leading "(" (POSIX allows it), as in `case x in (a) ...`.
 
 def path_of: aj::_resolve_path($base);
 
@@ -140,14 +145,14 @@ def compile($id):
         ") || __aj_fail \"$__scope\"; " +
         (.subflow | compile(sub("s"))) + " )"
     elif .type == "If" then
-        "( __c=$( \(.condition | compile(sub("c"))) ) || __aj_fail \"$__c\"; case \"$__c\" in false|null) " +
-        ((.else // {type: "Identity"}) | compile(sub("e"))) + " ;; *) " +
+        "( __c=$( \(.condition | compile(sub("c"))) ) || __aj_fail \"$__c\"; case \"$__c\" in (false|null) " +
+        ((.else // {type: "Identity"}) | compile(sub("e"))) + " ;; (*) " +
         (.then | compile(sub("t"))) + " ;; esac )"
     elif .type == "Switch" then
         reduce (.cases | to_entries | reverse[]) as $case
             ((.default // {type: "Identity"}) | compile(sub("d"));
              "( __c=$( \($case.value.when | compile(sub("w\($case.key)"))) ) || __aj_fail \"$__c\"; " +
-             "case \"$__c\" in false|null) \(.) ;; *) \($case.value.do | compile(sub("d\($case.key)"))) ;; esac )")
+             "case \"$__c\" in (false|null) \(.) ;; (*) \($case.value.do | compile(sub("d\($case.key)"))) ;; esac )")
     elif .type == "Try" then
         "( if __v=$( \(.subflow | compile(sub("s"))) ); then printf '%s\\n' \"$__v\"; " +
         "else __in=$(__aj_error_value \"$__v\"); \(.catch | compile(sub("c"))); fi )"

@@ -1086,6 +1086,128 @@
     }
   },
   {
+    "name": "switch-nested",
+    "flow": {
+      "type": "Sequence",
+      "subflows": [
+        {
+          "type": "Cascade",
+          "subflows": [
+            {
+              "type": "Constant",
+              "data": 2
+            },
+            {
+              "type": "Switch",
+              "cases": [
+                {
+                  "when": {
+                    "type": "Jq",
+                    "filter_code": ". == 1"
+                  },
+                  "do": {
+                    "type": "Constant",
+                    "data": "one"
+                  }
+                },
+                {
+                  "when": {
+                    "type": "Jq",
+                    "filter_code": ". == 2"
+                  },
+                  "do": {
+                    "type": "Constant",
+                    "data": "two"
+                  }
+                }
+              ],
+              "default": {
+                "type": "Constant",
+                "data": "other"
+              }
+            }
+          ]
+        },
+        {
+          "type": "Switch",
+          "cases": [
+            {
+              "when": {
+                "type": "Constant",
+                "data": false
+              },
+              "do": {
+                "type": "Constant",
+                "data": 1
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "options": [
+      "--input",
+      "\"in\""
+    ],
+    "expect": {
+      "result": [
+        "two",
+        "in"
+      ]
+    }
+  },
+  {
+    "name": "if-nested",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Sequence",
+          "subflows": [
+            {
+              "type": "If",
+              "condition": {
+                "type": "Constant",
+                "data": true
+              },
+              "then": {
+                "type": "Constant",
+                "data": "a"
+              }
+            },
+            {
+              "type": "Parallel",
+              "subflows": [
+                {
+                  "type": "If",
+                  "condition": {
+                    "type": "Constant",
+                    "data": null
+                  },
+                  "then": {
+                    "type": "Constant",
+                    "data": "b"
+                  },
+                  "else": {
+                    "type": "Constant",
+                    "data": "c"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Jq",
+          "filter_code": "tostring"
+        }
+      ]
+    },
+    "expect": {
+      "result": "[\"a\",[\"c\"]]"
+    }
+  },
+  {
     "name": "switch-first-match-wins",
     "flow": {
       "type": "Switch",
