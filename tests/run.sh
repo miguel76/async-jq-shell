@@ -7,13 +7,16 @@
 # Environment:
 #   ASYNC_JQ  the command to test (default: ../bin/async-jq)
 #
-# Each case runs `async-jq --envelope [options] <filter>` in this directory,
-# with FLOW_PATH=flow and DATA_PATH=., and checks the final envelope. In the
-# envelope, the absolute path of this directory is replaced by "<tests>".
+# Each case runs `async-jq --envelope [options] (--flow FLOW | FLOW_FILE)` in
+# a copy of this directory and checks the final envelope. In the envelope, the absolute
+# path of this directory is replaced by "<tests>". The directory out/ is
+# emptied before the cases run, for the files they write.
 #
 # Case fields:
 #   name          unique name
-#   filter        the filter to run
+#   flow          the flow to run, given in place (relative paths are
+#                 relative to this directory)
+#   flow_file     or the flow document to run
 #   options       (optional) array of extra options for async-jq
 #   env           (optional) object of environment variables to set
 #   stdin         (optional) JSON value given (as text) on stdin
@@ -25,17 +28,22 @@
 #   expect_exit   (optional) expected exit status (default: 0 for a result,
 #                 1 for an error)
 #   stderr_contains (optional) string that stderr must contain
+#   max_seconds   (optional) the run must take at most this many seconds
+#                 (whole seconds, as measured by date +%s)
 
 cd "$(dirname "$0")" || exit 1
-TESTS=$(pwd)
-ASYNC_JQ=${ASYNC_JQ:-$TESTS/../bin/async-jq}
-FLOW_PATH=flow
-DATA_PATH=.
-export FLOW_PATH DATA_PATH
+ASYNC_JQ=${ASYNC_JQ:-$(pwd)/../bin/async-jq}
+rm -rf out && mkdir out || exit 1
 
 PATTERN=$1
 TMP=$(mktemp -d) || exit 1
 trap 'rm -rf "$TMP"' EXIT
+
+# the cases run in a copy of this directory, so that nothing outside it (like
+# the engine's ../lib, which jq would find from here) can affect them
+mkdir "$TMP/tests" && cp -R . "$TMP/tests" || exit 1
+cd "$TMP/tests" || exit 1
+TESTS=$(pwd)
 
 COUNT=$(jq length cases.json) || exit 1
 PASSED=0
@@ -63,17 +71,21 @@ while [ "$i" -lt "$COUNT" ]; do
     fi
 
     # run, through env to set the case's environment variables:
-    #   env [VAR=VALUE]... $ASYNC_JQ --envelope [OPTION]... FILTER
+    #   env [VAR=VALUE]... $ASYNC_JQ --envelope [OPTION]... (--flow FLOW | FLOW_FILE)
     eval "set -- $(printf '%s' "$TC" | jq -r --arg async_jq "$ASYNC_JQ" '
         [((.env // {}) | to_entries[] | "\(.key)=\(.value)"),
-         $async_jq, "--envelope", (.options // [])[], .filter] | map(@sh) | join(" ")')"
+         $async_jq, "--envelope", (.options // [])[],
+         (if has("flow") then "--flow", (.flow | tojson) else .flow_file end)] | map(@sh) | join(" ")')"
+    START=$(date +%s)
     env "$@" < "$TMP/stdin" > "$TMP/stdout" 2> "$TMP/stderr"
     STATUS=$?
+    ELAPSED=$(($(date +%s) - START))
     jq -c --arg tests "$TESTS" 'walk(if type == "string" then split($tests) | join("<tests>") else . end)' \
         "$TMP/stdout" > "$TMP/actual" 2>/dev/null || : > "$TMP/actual"
 
     # checks
-    PROBLEMS=$(jq -nr --slurpfile actual "$TMP/actual" --argjson tc "$TC" --argjson status "$STATUS" '
+    PROBLEMS=$(jq -nr --slurpfile actual "$TMP/actual" --argjson tc "$TC" --argjson status "$STATUS" \
+        --argjson elapsed "$ELAPSED" '
         ($actual[0]) as $env |
         (if $tc | has("expect_exit") then $tc.expect_exit
          elif ($tc.expect // {}) | has("error") then 1
@@ -83,7 +95,9 @@ while [ "$i" -lt "$COUNT" ]; do
             "expected \($tc.expect | tojson), got \($env | tojson)" else empty end),
         (if $tc | has("expect_error") and (($env | type) != "object" or ($env | has("error") | not) or ($env.error | contains($tc.expect_error) | not)) then
             "expected an error containing \($tc.expect_error | tojson), got \($env | tojson)" else empty end),
-        (if $status != $exit then "expected exit status \($exit), got \($status)" else empty end)
+        (if $status != $exit then "expected exit status \($exit), got \($status)" else empty end),
+        (if $tc | has("max_seconds") and $elapsed > $tc.max_seconds then
+            "expected to take at most \($tc.max_seconds)s, took \($elapsed)s" else empty end)
     ')
     if printf '%s' "$TC" | jq -e 'has("expect_jq")' >/dev/null; then
         EXPR=$(printf '%s' "$TC" | jq -r '.expect_jq')
