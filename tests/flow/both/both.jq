@@ -1,1 +1,0 @@
-{result: "both/both.jq"}

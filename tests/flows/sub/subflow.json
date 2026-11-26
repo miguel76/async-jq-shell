@@ -1,0 +1,7 @@
+{
+  "type": "Cascade",
+  "subflows": [
+    {"type": "Fetch", "location": "../../data/d.json"},
+    {"type": "Jq", "filter_ref": "./get-x.jq"}
+  ]
+}

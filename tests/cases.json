@@ -1,14 +1,58 @@
 [
   {
-    "name": "error-step",
-    "filter": "error-step",
+    "name": "constant",
+    "flow": {
+      "type": "Constant",
+      "data": {
+        "a": [
+          1,
+          "x"
+        ]
+      }
+    },
     "expect": {
-      "error": "boom"
+      "result": {
+        "a": [
+          1,
+          "x"
+        ]
+      }
     }
   },
   {
-    "name": "several-steps",
-    "filter": "several-steps",
+    "name": "identity",
+    "flow": {
+      "type": "Identity"
+    },
+    "options": [
+      "--input",
+      "{\"a\":1}"
+    ],
+    "expect": {
+      "result": {
+        "a": 1
+      }
+    }
+  },
+  {
+    "name": "identity-default-null",
+    "flow": {
+      "type": "Identity"
+    },
+    "expect": {
+      "result": null
+    }
+  },
+  {
+    "name": "get",
+    "flow": {
+      "type": "Get",
+      "input_id": "x"
+    },
+    "options": [
+      "--named",
+      "x=[1,2]"
+    ],
     "expect": {
       "result": [
         1,
@@ -17,362 +61,1799 @@
     }
   },
   {
-    "name": "array-first-error",
-    "filter": "array-first-error",
+    "name": "get-unbound",
+    "flow": {
+      "type": "Get",
+      "input_id": "x"
+    },
+    "expect_error": {
+      "type": "input",
+      "input_id": "x"
+    }
+  },
+  {
+    "name": "error",
+    "flow": {
+      "type": "Error",
+      "error": {
+        "why": "boom"
+      }
+    },
+    "expect": {
+      "error": {
+        "why": "boom"
+      }
+    }
+  },
+  {
+    "name": "error-string",
+    "flow": {
+      "type": "Error",
+      "error": "boom"
+    },
+    "expect": {
+      "error": "boom"
+    }
+  },
+  {
+    "name": "cascade",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": 3
+        },
+        {
+          "type": "Jq",
+          "filter_code": ". * 2"
+        },
+        {
+          "type": "Jq",
+          "filter_code": ". + 1"
+        }
+      ]
+    },
+    "expect": {
+      "result": 7
+    }
+  },
+  {
+    "name": "cascade-first-gets-input",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Jq",
+          "filter_code": ". + 1"
+        }
+      ]
+    },
+    "options": [
+      "--input",
+      "1"
+    ],
+    "expect": {
+      "result": 2
+    }
+  },
+  {
+    "name": "cascade-empty",
+    "flow": {
+      "type": "Cascade",
+      "subflows": []
+    },
+    "options": [
+      "--input",
+      "\"x\""
+    ],
+    "expect": {
+      "result": "x"
+    }
+  },
+  {
+    "name": "cascade-stops-at-error",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": 1
+        },
+        {
+          "type": "Error",
+          "error": "first"
+        },
+        {
+          "type": "Error",
+          "error": "second"
+        }
+      ]
+    },
     "expect": {
       "error": "first"
     }
   },
   {
-    "name": "nested-arrays",
-    "filter": "nested-arrays",
+    "name": "cascade-no-side-effect-after-error",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Error",
+          "error": "stop"
+        },
+        {
+          "type": "Shell",
+          "cmd": "touch out/after-error"
+        }
+      ]
+    },
+    "expect": {
+      "error": "stop"
+    }
+  },
+  {
+    "name": "cascade-side-effect-check",
+    "flow": {
+      "type": "Fetch",
+      "location": "out/after-error"
+    },
+    "expect_error": {
+      "type": "fetch",
+      "message": "file not found"
+    }
+  },
+  {
+    "name": "sequence",
+    "flow": {
+      "type": "Sequence",
+      "subflows": [
+        {
+          "type": "Identity"
+        },
+        {
+          "type": "Jq",
+          "filter_code": ". * 2"
+        },
+        {
+          "type": "Constant",
+          "data": "x"
+        }
+      ]
+    },
+    "options": [
+      "--input",
+      "5"
+    ],
+    "expect": {
+      "result": [
+        5,
+        10,
+        "x"
+      ]
+    }
+  },
+  {
+    "name": "sequence-empty",
+    "flow": {
+      "type": "Sequence",
+      "subflows": []
+    },
+    "expect": {
+      "result": []
+    }
+  },
+  {
+    "name": "sequence-stops-at-error",
+    "flow": {
+      "type": "Sequence",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": 1
+        },
+        {
+          "type": "Error",
+          "error": "first"
+        },
+        {
+          "type": "Error",
+          "error": "second"
+        }
+      ]
+    },
+    "expect": {
+      "error": "first"
+    }
+  },
+  {
+    "name": "sequence-nested",
+    "flow": {
+      "type": "Sequence",
+      "subflows": [
+        {
+          "type": "Sequence",
+          "subflows": [
+            {
+              "type": "Constant",
+              "data": 1
+            },
+            {
+              "type": "Constant",
+              "data": 2
+            }
+          ]
+        },
+        {
+          "type": "Sequence",
+          "subflows": []
+        },
+        {
+          "type": "Constant",
+          "data": [
+            3
+          ]
+        }
+      ]
+    },
+    "expect": {
+      "result": [
+        [
+          1,
+          2
+        ],
+        [],
+        [
+          3
+        ]
+      ]
+    }
+  },
+  {
+    "name": "parallel-preserve-order",
+    "flow": {
+      "type": "Parallel",
+      "subflows": [
+        {
+          "type": "Cascade",
+          "subflows": [
+            {
+              "type": "Shell",
+              "cmd": "sleep 0.3"
+            },
+            {
+              "type": "Constant",
+              "data": 1
+            }
+          ]
+        },
+        {
+          "type": "Constant",
+          "data": 2
+        }
+      ],
+      "preserve_order": true
+    },
     "expect": {
       "result": [
         1,
+        2
+      ]
+    }
+  },
+  {
+    "name": "parallel-completion-order",
+    "flow": {
+      "type": "Parallel",
+      "subflows": [
+        {
+          "type": "Cascade",
+          "subflows": [
+            {
+              "type": "Shell",
+              "cmd": "sleep 0.3"
+            },
+            {
+              "type": "Constant",
+              "data": 1
+            }
+          ]
+        },
+        {
+          "type": "Constant",
+          "data": 2
+        }
+      ]
+    },
+    "expect": {
+      "result": [
         2,
+        1
+      ]
+    }
+  },
+  {
+    "name": "parallel-input",
+    "flow": {
+      "type": "Parallel",
+      "subflows": [
+        {
+          "type": "Jq",
+          "filter_code": ". + 1"
+        },
+        {
+          "type": "Jq",
+          "filter_code": ". * 3"
+        }
+      ],
+      "preserve_order": true
+    },
+    "options": [
+      "--input",
+      "2"
+    ],
+    "expect": {
+      "result": [
+        3,
+        6
+      ]
+    }
+  },
+  {
+    "name": "parallel-empty",
+    "flow": {
+      "type": "Parallel",
+      "subflows": []
+    },
+    "expect": {
+      "result": []
+    }
+  },
+  {
+    "name": "parallel-first-error-in-order",
+    "flow": {
+      "type": "Parallel",
+      "subflows": [
+        {
+          "type": "Cascade",
+          "subflows": [
+            {
+              "type": "Shell",
+              "cmd": "sleep 0.3"
+            },
+            {
+              "type": "Error",
+              "error": "first"
+            }
+          ]
+        },
+        {
+          "type": "Error",
+          "error": "second"
+        }
+      ]
+    },
+    "expect": {
+      "error": "first"
+    }
+  },
+  {
+    "name": "parallel-runs-all-subflows",
+    "flow": {
+      "type": "Parallel",
+      "subflows": [
+        {
+          "type": "Error",
+          "error": "fail"
+        },
+        {
+          "type": "Cascade",
+          "subflows": [
+            {
+              "type": "Shell",
+              "cmd": "sleep 0.2"
+            },
+            {
+              "type": "Shell",
+              "cmd": "touch out/parallel-ran"
+            }
+          ]
+        }
+      ]
+    },
+    "expect": {
+      "error": "fail"
+    }
+  },
+  {
+    "name": "parallel-runs-all-subflows-check",
+    "flow": {
+      "type": "Fetch",
+      "location": "out/parallel-ran"
+    },
+    "expect": {
+      "result": ""
+    }
+  },
+  {
+    "name": "parallel-concurrent",
+    "flow": {
+      "type": "Parallel",
+      "subflows": [
+        {
+          "type": "Shell",
+          "cmd": "sleep 1"
+        },
+        {
+          "type": "Shell",
+          "cmd": "sleep 1"
+        },
+        {
+          "type": "Shell",
+          "cmd": "sleep 1"
+        }
+      ]
+    },
+    "expect": {
+      "result": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "max_seconds": 2
+  },
+  {
+    "name": "let",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "x": {
+          "type": "Constant",
+          "data": 7
+        }
+      },
+      "subflow": {
+        "type": "Get",
+        "input_id": "x"
+      }
+    },
+    "expect": {
+      "result": 7
+    }
+  },
+  {
+    "name": "let-several",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "a": {
+          "type": "Constant",
+          "data": 1
+        },
+        "b": {
+          "type": "Constant",
+          "data": 2
+        }
+      },
+      "subflow": {
+        "type": "Sequence",
+        "subflows": [
+          {
+            "type": "Get",
+            "input_id": "a"
+          },
+          {
+            "type": "Get",
+            "input_id": "b"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "result": [
+        1,
+        2
+      ]
+    }
+  },
+  {
+    "name": "let-assign-gets-input",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "x": {
+          "type": "Jq",
+          "filter_code": ". * 2"
+        }
+      },
+      "subflow": {
+        "type": "Sequence",
+        "subflows": [
+          {
+            "type": "Identity"
+          },
+          {
+            "type": "Get",
+            "input_id": "x"
+          }
+        ]
+      }
+    },
+    "options": [
+      "--input",
+      "5"
+    ],
+    "expect": {
+      "result": [
+        5,
+        10
+      ]
+    }
+  },
+  {
+    "name": "let-shadowing",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "x": {
+          "type": "Constant",
+          "data": 1
+        }
+      },
+      "subflow": {
+        "type": "Let",
+        "assign": {
+          "x": {
+            "type": "Constant",
+            "data": 2
+          }
+        },
+        "subflow": {
+          "type": "Get",
+          "input_id": "x"
+        }
+      }
+    },
+    "expect": {
+      "result": 2
+    }
+  },
+  {
+    "name": "let-outer-still-visible",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "x": {
+          "type": "Constant",
+          "data": 1
+        }
+      },
+      "subflow": {
+        "type": "Let",
+        "assign": {
+          "y": {
+            "type": "Constant",
+            "data": 2
+          }
+        },
+        "subflow": {
+          "type": "Sequence",
+          "subflows": [
+            {
+              "type": "Get",
+              "input_id": "x"
+            },
+            {
+              "type": "Get",
+              "input_id": "y"
+            }
+          ]
+        }
+      }
+    },
+    "expect": {
+      "result": [
+        1,
+        2
+      ]
+    }
+  },
+  {
+    "name": "let-assignments-see-outer-scope",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "x": {
+          "type": "Constant",
+          "data": 1
+        }
+      },
+      "subflow": {
+        "type": "Let",
+        "assign": {
+          "x": {
+            "type": "Constant",
+            "data": 2
+          },
+          "y": {
+            "type": "Get",
+            "input_id": "x"
+          }
+        },
+        "subflow": {
+          "type": "Get",
+          "input_id": "y"
+        }
+      }
+    },
+    "expect": {
+      "result": 1
+    }
+  },
+  {
+    "name": "let-broadcast",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "x": {
+          "type": "Constant",
+          "data": 1
+        }
+      },
+      "subflow": {
+        "type": "Cascade",
+        "subflows": [
+          {
+            "type": "Constant",
+            "data": 0
+          },
+          {
+            "type": "Sequence",
+            "subflows": [
+              {
+                "type": "Parallel",
+                "subflows": [
+                  {
+                    "type": "Get",
+                    "input_id": "x"
+                  }
+                ]
+              },
+              {
+                "type": "If",
+                "condition": {
+                  "type": "Constant",
+                  "data": true
+                },
+                "then": {
+                  "type": "Get",
+                  "input_id": "x"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "result": [
         [
-          3,
-          "hello",
+          1
+        ],
+        1
+      ]
+    }
+  },
+  {
+    "name": "let-first-error-by-name",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "b": {
+          "type": "Error",
+          "error": "b"
+        },
+        "a": {
+          "type": "Error",
+          "error": "a"
+        }
+      },
+      "subflow": {
+        "type": "Identity"
+      }
+    },
+    "expect": {
+      "error": "a"
+    }
+  },
+  {
+    "name": "let-error-in-subflow",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "x": {
+          "type": "Constant",
+          "data": 1
+        }
+      },
+      "subflow": {
+        "type": "Error",
+        "error": "sub"
+      }
+    },
+    "expect": {
+      "error": "sub"
+    }
+  },
+  {
+    "name": "named-option",
+    "flow": {
+      "type": "Sequence",
+      "subflows": [
+        {
+          "type": "Get",
+          "input_id": "a"
+        },
+        {
+          "type": "Get",
+          "input_id": "b"
+        }
+      ]
+    },
+    "options": [
+      "--named",
+      "a=1",
+      "--named",
+      "b={\"c\":2}"
+    ],
+    "expect": {
+      "result": [
+        1,
+        {
+          "c": 2
+        }
+      ]
+    }
+  },
+  {
+    "name": "if-true",
+    "flow": {
+      "type": "If",
+      "condition": {
+        "type": "Constant",
+        "data": 0
+      },
+      "then": {
+        "type": "Constant",
+        "data": "then"
+      },
+      "else": {
+        "type": "Constant",
+        "data": "else"
+      }
+    },
+    "expect": {
+      "result": "then"
+    }
+  },
+  {
+    "name": "if-false",
+    "flow": {
+      "type": "If",
+      "condition": {
+        "type": "Constant",
+        "data": false
+      },
+      "then": {
+        "type": "Constant",
+        "data": "then"
+      },
+      "else": {
+        "type": "Constant",
+        "data": "else"
+      }
+    },
+    "expect": {
+      "result": "else"
+    }
+  },
+  {
+    "name": "if-null",
+    "flow": {
+      "type": "If",
+      "condition": {
+        "type": "Constant",
+        "data": null
+      },
+      "then": {
+        "type": "Constant",
+        "data": "then"
+      },
+      "else": {
+        "type": "Constant",
+        "data": "else"
+      }
+    },
+    "expect": {
+      "result": "else"
+    }
+  },
+  {
+    "name": "if-else-default-identity",
+    "flow": {
+      "type": "If",
+      "condition": {
+        "type": "Constant",
+        "data": false
+      },
+      "then": {
+        "type": "Constant",
+        "data": "then"
+      }
+    },
+    "options": [
+      "--input",
+      "\"in\""
+    ],
+    "expect": {
+      "result": "in"
+    }
+  },
+  {
+    "name": "if-branches-get-input",
+    "flow": {
+      "type": "If",
+      "condition": {
+        "type": "Jq",
+        "filter_code": ". > 1"
+      },
+      "then": {
+        "type": "Jq",
+        "filter_code": ". * 10"
+      },
+      "else": {
+        "type": "Jq",
+        "filter_code": ". - 1"
+      }
+    },
+    "options": [
+      "--input",
+      "5"
+    ],
+    "expect": {
+      "result": 50
+    }
+  },
+  {
+    "name": "if-condition-error",
+    "flow": {
+      "type": "If",
+      "condition": {
+        "type": "Error",
+        "error": "cond"
+      },
+      "then": {
+        "type": "Constant",
+        "data": 1
+      }
+    },
+    "expect": {
+      "error": "cond"
+    }
+  },
+  {
+    "name": "switch-first",
+    "flow": {
+      "type": "Switch",
+      "cases": [
+        {
+          "when": {
+            "type": "Jq",
+            "filter_code": ". == 1"
+          },
+          "do": {
+            "type": "Constant",
+            "data": "one"
+          }
+        },
+        {
+          "when": {
+            "type": "Jq",
+            "filter_code": ". == 2"
+          },
+          "do": {
+            "type": "Constant",
+            "data": "two"
+          }
+        }
+      ],
+      "default": {
+        "type": "Constant",
+        "data": "other"
+      }
+    },
+    "options": [
+      "--input",
+      "1"
+    ],
+    "expect": {
+      "result": "one"
+    }
+  },
+  {
+    "name": "switch-second",
+    "flow": {
+      "type": "Switch",
+      "cases": [
+        {
+          "when": {
+            "type": "Jq",
+            "filter_code": ". == 1"
+          },
+          "do": {
+            "type": "Constant",
+            "data": "one"
+          }
+        },
+        {
+          "when": {
+            "type": "Jq",
+            "filter_code": ". == 2"
+          },
+          "do": {
+            "type": "Constant",
+            "data": "two"
+          }
+        }
+      ],
+      "default": {
+        "type": "Constant",
+        "data": "other"
+      }
+    },
+    "options": [
+      "--input",
+      "2"
+    ],
+    "expect": {
+      "result": "two"
+    }
+  },
+  {
+    "name": "switch-default",
+    "flow": {
+      "type": "Switch",
+      "cases": [
+        {
+          "when": {
+            "type": "Jq",
+            "filter_code": ". == 1"
+          },
+          "do": {
+            "type": "Constant",
+            "data": "one"
+          }
+        },
+        {
+          "when": {
+            "type": "Jq",
+            "filter_code": ". == 2"
+          },
+          "do": {
+            "type": "Constant",
+            "data": "two"
+          }
+        }
+      ],
+      "default": {
+        "type": "Constant",
+        "data": "other"
+      }
+    },
+    "options": [
+      "--input",
+      "3"
+    ],
+    "expect": {
+      "result": "other"
+    }
+  },
+  {
+    "name": "switch-default-identity",
+    "flow": {
+      "type": "Switch",
+      "cases": [
+        {
+          "when": {
+            "type": "Constant",
+            "data": false
+          },
+          "do": {
+            "type": "Constant",
+            "data": 1
+          }
+        }
+      ]
+    },
+    "options": [
+      "--input",
+      "\"in\""
+    ],
+    "expect": {
+      "result": "in"
+    }
+  },
+  {
+    "name": "switch-nested",
+    "flow": {
+      "type": "Sequence",
+      "subflows": [
+        {
+          "type": "Cascade",
+          "subflows": [
+            {
+              "type": "Constant",
+              "data": 2
+            },
+            {
+              "type": "Switch",
+              "cases": [
+                {
+                  "when": {
+                    "type": "Jq",
+                    "filter_code": ". == 1"
+                  },
+                  "do": {
+                    "type": "Constant",
+                    "data": "one"
+                  }
+                },
+                {
+                  "when": {
+                    "type": "Jq",
+                    "filter_code": ". == 2"
+                  },
+                  "do": {
+                    "type": "Constant",
+                    "data": "two"
+                  }
+                }
+              ],
+              "default": {
+                "type": "Constant",
+                "data": "other"
+              }
+            }
+          ]
+        },
+        {
+          "type": "Switch",
+          "cases": [
+            {
+              "when": {
+                "type": "Constant",
+                "data": false
+              },
+              "do": {
+                "type": "Constant",
+                "data": 1
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "options": [
+      "--input",
+      "\"in\""
+    ],
+    "expect": {
+      "result": [
+        "two",
+        "in"
+      ]
+    }
+  },
+  {
+    "name": "if-nested",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Sequence",
+          "subflows": [
+            {
+              "type": "If",
+              "condition": {
+                "type": "Constant",
+                "data": true
+              },
+              "then": {
+                "type": "Constant",
+                "data": "a"
+              }
+            },
+            {
+              "type": "Parallel",
+              "subflows": [
+                {
+                  "type": "If",
+                  "condition": {
+                    "type": "Constant",
+                    "data": null
+                  },
+                  "then": {
+                    "type": "Constant",
+                    "data": "b"
+                  },
+                  "else": {
+                    "type": "Constant",
+                    "data": "c"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Jq",
+          "filter_code": "tostring"
+        }
+      ]
+    },
+    "expect": {
+      "result": "[\"a\",[\"c\"]]"
+    }
+  },
+  {
+    "name": "switch-first-match-wins",
+    "flow": {
+      "type": "Switch",
+      "cases": [
+        {
+          "when": {
+            "type": "Constant",
+            "data": true
+          },
+          "do": {
+            "type": "Constant",
+            "data": 1
+          }
+        },
+        {
+          "when": {
+            "type": "Constant",
+            "data": true
+          },
+          "do": {
+            "type": "Constant",
+            "data": 2
+          }
+        }
+      ]
+    },
+    "expect": {
+      "result": 1
+    }
+  },
+  {
+    "name": "try-recover",
+    "flow": {
+      "type": "Try",
+      "subflow": {
+        "type": "Error",
+        "error": "boom"
+      },
+      "catch": {
+        "type": "Jq",
+        "filter_code": "{recovered: .}"
+      }
+    },
+    "expect": {
+      "result": {
+        "recovered": "boom"
+      }
+    }
+  },
+  {
+    "name": "try-reraise",
+    "flow": {
+      "type": "Try",
+      "subflow": {
+        "type": "Error",
+        "error": "boom"
+      },
+      "catch": {
+        "type": "Cascade",
+        "subflows": [
+          {
+            "type": "Jq",
+            "filter_code": "{wrapped: .}"
+          },
+          {
+            "type": "Jq",
+            "filter_code": "."
+          },
+          {
+            "type": "Jq",
+            "filter_code": "error"
+          }
+        ]
+      }
+    },
+    "expect_error": {
+      "type": "jq"
+    }
+  },
+  {
+    "name": "try-reraise-with-error-flow",
+    "flow": {
+      "type": "Try",
+      "subflow": {
+        "type": "Error",
+        "error": "boom"
+      },
+      "catch": {
+        "type": "Error",
+        "error": {
+          "context": "x"
+        }
+      }
+    },
+    "expect": {
+      "error": {
+        "context": "x"
+      }
+    }
+  },
+  {
+    "name": "try-not-triggered",
+    "flow": {
+      "type": "Try",
+      "subflow": {
+        "type": "Constant",
+        "data": 1
+      },
+      "catch": {
+        "type": "Constant",
+        "data": "handler"
+      }
+    },
+    "expect": {
+      "result": 1
+    }
+  },
+  {
+    "name": "try-shell-error",
+    "flow": {
+      "type": "Try",
+      "subflow": {
+        "type": "Shell",
+        "cmd": "exit 3"
+      },
+      "catch": {
+        "type": "Jq",
+        "filter_code": ".status"
+      }
+    },
+    "expect": {
+      "result": 3
+    }
+  },
+  {
+    "name": "try-handler-sees-named-inputs",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "x": {
+          "type": "Constant",
+          "data": 5
+        }
+      },
+      "subflow": {
+        "type": "Try",
+        "subflow": {
+          "type": "Error",
+          "error": 1
+        },
+        "catch": {
+          "type": "Get",
+          "input_id": "x"
+        }
+      }
+    },
+    "expect": {
+      "result": 5
+    }
+  },
+  {
+    "name": "for-each",
+    "flow": {
+      "type": "ForEach",
+      "subflow": {
+        "type": "Jq",
+        "filter_code": ". * 2"
+      }
+    },
+    "options": [
+      "--input",
+      "[1,2,3]"
+    ],
+    "expect": {
+      "result": [
+        2,
+        4,
+        6
+      ]
+    }
+  },
+  {
+    "name": "for-each-empty",
+    "flow": {
+      "type": "ForEach",
+      "subflow": {
+        "type": "Jq",
+        "filter_code": ". * 2"
+      }
+    },
+    "options": [
+      "--input",
+      "[]"
+    ],
+    "expect": {
+      "result": []
+    }
+  },
+  {
+    "name": "for-each-objects",
+    "flow": {
+      "type": "ForEach",
+      "subflow": {
+        "type": "Jq",
+        "filter_code": ".a"
+      }
+    },
+    "options": [
+      "--input",
+      "[{\"a\":\"x y\"},{\"a\":[1]}]"
+    ],
+    "expect": {
+      "result": [
+        "x y",
+        [
           1
         ]
       ]
     }
   },
   {
-    "name": "returns-invalid-step",
-    "filter": "returns-invalid-step",
-    "expect_error": {
-      "type": "step",
-      "message": "invalid step"
+    "name": "for-each-stops-at-error",
+    "flow": {
+      "type": "ForEach",
+      "subflow": {
+        "type": "If",
+        "condition": {
+          "type": "Jq",
+          "filter_code": ". == 2"
+        },
+        "then": {
+          "type": "Error",
+          "error": "two"
+        },
+        "else": {
+          "type": "Identity"
+        }
+      }
+    },
+    "options": [
+      "--input",
+      "[1,2,3]"
+    ],
+    "expect": {
+      "error": "two"
     }
   },
   {
-    "name": "shell-text-output",
-    "filter": "shell-text-output",
+    "name": "for-each-not-array",
+    "flow": {
+      "type": "ForEach",
+      "subflow": {
+        "type": "Identity"
+      }
+    },
+    "options": [
+      "--input",
+      "{}"
+    ],
+    "expect_error": {
+      "type": "type"
+    }
+  },
+  {
+    "name": "for-each-parallel-preserve",
+    "flow": {
+      "type": "ForEach",
+      "subflow": {
+        "type": "Shell",
+        "cmd": "x=$(cat); sleep 0.$((3 - x)); echo $x"
+      },
+      "parallel": true,
+      "preserve_order": true
+    },
+    "options": [
+      "--input",
+      "[1,2]"
+    ],
+    "expect": {
+      "result": [
+        1,
+        2
+      ]
+    }
+  },
+  {
+    "name": "for-each-parallel",
+    "flow": {
+      "type": "ForEach",
+      "subflow": {
+        "type": "Jq",
+        "filter_code": ". * 2"
+      },
+      "parallel": true
+    },
+    "options": [
+      "--input",
+      "[1,2,3]"
+    ],
+    "expect_jq": ".result | sort == [2,4,6]"
+  },
+  {
+    "name": "for-each-parallel-concurrent",
+    "flow": {
+      "type": "ForEach",
+      "subflow": {
+        "type": "Shell",
+        "cmd": "sleep 1"
+      },
+      "parallel": true
+    },
+    "options": [
+      "--input",
+      "[1,2,3]"
+    ],
+    "expect": {
+      "result": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "max_seconds": 2
+  },
+  {
+    "name": "for-each-named-inputs",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "k": {
+          "type": "Constant",
+          "data": 10
+        }
+      },
+      "subflow": {
+        "type": "ForEach",
+        "subflow": {
+          "type": "Jq",
+          "filter_code": ". * $k"
+        }
+      }
+    },
+    "options": [
+      "--input",
+      "[1,2]"
+    ],
+    "expect": {
+      "result": [
+        10,
+        20
+      ]
+    }
+  },
+  {
+    "name": "loop",
+    "flow": {
+      "type": "Loop",
+      "while": {
+        "type": "Jq",
+        "filter_code": ". < 5"
+      },
+      "subflow": {
+        "type": "Jq",
+        "filter_code": ". + 1"
+      }
+    },
+    "options": [
+      "--input",
+      "0"
+    ],
+    "expect": {
+      "result": 5
+    }
+  },
+  {
+    "name": "loop-zero-iterations",
+    "flow": {
+      "type": "Loop",
+      "while": {
+        "type": "Constant",
+        "data": false
+      },
+      "subflow": {
+        "type": "Error",
+        "error": "never"
+      }
+    },
+    "options": [
+      "--input",
+      "1"
+    ],
+    "expect": {
+      "result": 1
+    }
+  },
+  {
+    "name": "loop-error",
+    "flow": {
+      "type": "Loop",
+      "while": {
+        "type": "Constant",
+        "data": true
+      },
+      "subflow": {
+        "type": "Error",
+        "error": "body"
+      }
+    },
+    "expect": {
+      "error": "body"
+    }
+  },
+  {
+    "name": "shell-text",
+    "flow": {
+      "type": "Shell",
+      "cmd": "echo hello"
+    },
     "expect": {
       "result": "hello"
     }
   },
   {
+    "name": "shell-json",
+    "flow": {
+      "type": "Shell",
+      "cmd": "echo '{\"a\": 1}'"
+    },
+    "expect": {
+      "result": {
+        "a": 1
+      }
+    }
+  },
+  {
     "name": "shell-empty-output",
-    "filter": "shell-empty-output",
+    "flow": {
+      "type": "Shell",
+      "cmd": "true"
+    },
     "expect": {
       "result": ""
     }
   },
   {
-    "name": "shell-newlines-only",
-    "filter": "shell-newlines-only",
+    "name": "shell-trailing-newlines-removed",
+    "flow": {
+      "type": "Shell",
+      "cmd": "printf 'a\\n\\n'"
+    },
+    "expect": {
+      "result": "a"
+    }
+  },
+  {
+    "name": "shell-format-text",
+    "flow": {
+      "type": "Shell",
+      "cmd": "echo 42",
+      "format": "text"
+    },
+    "expect": {
+      "result": "42"
+    }
+  },
+  {
+    "name": "shell-format-json-invalid",
+    "flow": {
+      "type": "Shell",
+      "cmd": "echo nope",
+      "format": "json"
+    },
+    "expect_error": {
+      "type": "parse",
+      "format": "json"
+    }
+  },
+  {
+    "name": "shell-stdin-string-raw",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": "a b"
+        },
+        {
+          "type": "Shell",
+          "cmd": "cat",
+          "format": "text"
+        }
+      ]
+    },
+    "expect": {
+      "result": "a b"
+    }
+  },
+  {
+    "name": "shell-stdin-json",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": {
+            "a": [
+              1
+            ]
+          }
+        },
+        {
+          "type": "Shell",
+          "cmd": "cat"
+        }
+      ]
+    },
+    "expect": {
+      "result": {
+        "a": [
+          1
+        ]
+      }
+    }
+  },
+  {
+    "name": "shell-stdin-input-format-json",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": "a"
+        },
+        {
+          "type": "Shell",
+          "cmd": "cat",
+          "input_format": "json",
+          "format": "text"
+        }
+      ]
+    },
+    "expect": {
+      "result": "\"a\""
+    }
+  },
+  {
+    "name": "shell-stdin-input-format-text-type-error",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": 1
+        },
+        {
+          "type": "Shell",
+          "cmd": "cat",
+          "input_format": "text"
+        }
+      ]
+    },
+    "expect_error": {
+      "type": "type"
+    }
+  },
+  {
+    "name": "shell-stdin-null-is-empty",
+    "flow": {
+      "type": "Shell",
+      "cmd": "cat"
+    },
     "expect": {
       "result": ""
+    }
+  },
+  {
+    "name": "shell-failure",
+    "flow": {
+      "type": "Shell",
+      "cmd": "echo x; exit 3"
+    },
+    "expect": {
+      "error": {
+        "type": "shell",
+        "cmd": "echo x; exit 3",
+        "status": 3
+      }
+    }
+  },
+  {
+    "name": "shell-named-inputs-ignored",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "x": {
+          "type": "Constant",
+          "data": 1
+        }
+      },
+      "subflow": {
+        "type": "Shell",
+        "cmd": "echo \"[$x]\"",
+        "format": "text"
+      }
+    },
+    "expect": {
+      "result": "[]"
     }
   },
   {
     "name": "shell-quoting",
-    "filter": "shell-quoting",
+    "flow": {
+      "type": "Shell",
+      "cmd": "echo \"it's\" '$HOME'",
+      "format": "text"
+    },
     "expect": {
       "result": "it's $HOME"
     }
   },
   {
-    "name": "result-quoting",
-    "filter": "result-quoting",
+    "name": "shell-positional-parameters-empty",
+    "flow": {
+      "type": "Shell",
+      "cmd": "echo \"$#\""
+    },
     "expect": {
-      "result": "it's $HOME (x) \"q\""
+      "result": 0
     }
   },
   {
     "name": "shell-trailing-comment",
-    "filter": "shell-trailing-comment",
+    "flow": {
+      "type": "Shell",
+      "cmd": "echo hi # comment"
+    },
     "expect": {
       "result": "hi"
     }
   },
   {
-    "name": "shell-failure",
-    "filter": "shell-failure",
-    "expect": {
-      "error": {
-        "type": "shell",
-        "command": "echo x; false",
-        "status": 1
-      }
-    }
-  },
-  {
-    "name": "shell-failure-nested",
-    "filter": "shell-failure-nested",
-    "expect": {
-      "error": {
-        "type": "shell",
-        "command": "false",
-        "status": 1
-      }
-    }
-  },
-  {
-    "name": "shell-ignores-input",
-    "filter": "shell-ignores-input",
-    "expect": {
-      "result": {
-        "got": "shell-ignores-input"
-      }
-    }
-  },
-  {
-    "name": "next-relative",
-    "filter": "a/next-relative",
-    "expect": {
-      "result": {
-        "sib": 1
-      }
-    }
-  },
-  {
-    "name": "next-parent",
-    "filter": "a/next-parent",
-    "expect": {
-      "result": {
-        "got": 2
-      }
-    }
-  },
-  {
-    "name": "next-without-main",
-    "filter": "next-without-main",
-    "expect": {
-      "result": {
-        "got": 3
-      }
-    }
-  },
-  {
-    "name": "next-array-fan-out",
-    "filter": "next-array-fan-out",
-    "expect": {
-      "result": [
-        30,
-        4,
-        "const"
-      ]
-    }
-  },
-  {
-    "name": "filter-runtime-error",
-    "filter": "filter-runtime-error",
-    "expect_error": {
-      "type": "filter",
-      "filter": "<tests>/flow/badfilter.jq",
-      "status": 5,
-      "message": "cannot be added"
-    }
-  },
-  {
-    "name": "debug-passthrough",
-    "filter": "debug-passthrough",
-    "expect": {
-      "result": 1
+    "name": "fetch-static",
+    "flow": {
+      "type": "Fetch",
+      "location": "data/d.json"
     },
-    "stderr_contains": "[\"DEBUG:\",\"dbg msg\"]"
-  },
-  {
-    "name": "call-continuation",
-    "filter": "call-continuation",
-    "expect": {
-      "result": {
-        "got": 105
-      }
-    }
-  },
-  {
-    "name": "call-returns-array",
-    "filter": "call-returns-array",
-    "expect": {
-      "result": {
-        "got": [
-          1,
-          2
-        ]
-      }
-    }
-  },
-  {
-    "name": "continuation-keeps-caller-base",
-    "filter": "a/continuation-keeps-caller-base",
-    "expect": {
-      "result": {
-        "sib": 7
-      }
-    }
-  },
-  {
-    "name": "call-not-found",
-    "filter": "call-not-found",
-    "expect": {
-      "error": {
-        "type": "filter",
-        "filter": "<tests>/flow/nonexistent",
-        "message": "filter not found",
-        "candidates": [
-          "<tests>/flow/nonexistent.jq",
-          "<tests>/flow/nonexistent/nonexistent.jq"
-        ]
-      }
-    }
-  },
-  {
-    "name": "call-resolved-filter",
-    "filter": "call-resolved-filter",
-    "expect": {
-      "result": {
-        "helper": "pkg/pkg.jq",
-        "here": "pkg/helper.jq"
-      }
-    }
-  },
-  {
-    "name": "on-error-recover",
-    "filter": "on-error-recover",
-    "expect": {
-      "result": {
-        "recovered": {
-          "type": "shell",
-          "command": "false",
-          "status": 1
-        }
-      }
-    }
-  },
-  {
-    "name": "on-error-reraise",
-    "filter": "on-error-reraise",
-    "expect": {
-      "error": {
-        "wrapped": {
-          "type": "shell",
-          "command": "false",
-          "status": 1
-        }
-      }
-    }
-  },
-  {
-    "name": "on-error-retry",
-    "filter": "on-error-retry",
-    "expect": {
-      "result": "fallback"
-    }
-  },
-  {
-    "name": "on-error-handler-fails",
-    "filter": "on-error-handler-fails",
-    "expect_error": {
-      "type": "filter",
-      "filter": "<tests>/flow/badfilter.jq",
-      "message": "cannot be added"
-    }
-  },
-  {
-    "name": "on-error-not-triggered",
-    "filter": "on-error-not-triggered",
-    "expect": {
-      "result": "ok"
-    }
-  },
-  {
-    "name": "on-error-array",
-    "filter": "on-error-array",
-    "expect": {
-      "result": {
-        "recovered": {
-          "type": "shell",
-          "command": "false",
-          "status": 1
-        }
-      }
-    }
-  },
-  {
-    "name": "on-error-step-handler",
-    "filter": "on-error-step-handler",
-    "expect": {
-      "result": "fallback"
-    }
-  },
-  {
-    "name": "on-error-on-call",
-    "filter": "on-error-on-call",
-    "expect": {
-      "result": {
-        "got": {
-          "recovered": "callee failed"
-        }
-      }
-    }
-  },
-  {
-    "name": "on-error-not-covering-next",
-    "filter": "on-error-not-covering-next",
-    "expect": {
-      "error": "in continuation"
-    }
-  },
-  {
-    "name": "callee-handler-not-covering-continuation",
-    "filter": "callee-handler-not-covering-continuation",
-    "expect": {
-      "error": "cont"
-    }
-  },
-  {
-    "name": "sync-call-in-next",
-    "filter": "sync-call-in-next",
-    "expect": {
-      "result": 40
-    }
-  },
-  {
-    "name": "sync-next-error",
-    "filter": "sync-next-error",
-    "expect_error": {
-      "type": "filter",
-      "filter": "<tests>/flow/syncerr.jq",
-      "status": 5,
-      "message": "sync boom"
-    }
-  },
-  {
-    "name": "sync-call-no-output",
-    "filter": "sync-call-no-output",
-    "expect": {
-      "error": {
-        "type": "sync_call",
-        "filter": "<tests>/flow/none.jq",
-        "message": "expected exactly one output, got 0"
-      }
-    }
-  },
-  {
-    "name": "sync-call-two-outputs",
-    "filter": "sync-call-two-outputs",
-    "expect": {
-      "error": {
-        "type": "sync_call",
-        "filter": "<tests>/flow/two.jq",
-        "message": "expected exactly one output, got 2"
-      }
-    }
-  },
-  {
-    "name": "sync-next-nested",
-    "filter": "sync-next-nested",
-    "expect": {
-      "result": 41
-    }
-  },
-  {
-    "name": "fetch-auto-json",
-    "filter": "fetch-auto-json",
     "expect": {
       "result": {
         "x": 1
@@ -380,470 +1861,1249 @@
     }
   },
   {
-    "name": "fetch-auto-text",
-    "filter": "fetch-auto-text",
+    "name": "fetch-text",
+    "flow": {
+      "type": "Fetch",
+      "location": "data/d.txt"
+    },
     "expect": {
       "result": "hello\nworld\n"
     }
   },
   {
     "name": "fetch-format-text",
-    "filter": "fetch-format-text",
+    "flow": {
+      "type": "Fetch",
+      "location": "data/d.json",
+      "format": "text"
+    },
     "expect": {
       "result": "{\"x\": 1}\n"
     }
   },
   {
     "name": "fetch-format-json-invalid",
-    "filter": "fetch-format-json-invalid",
-    "expect_error": {
-      "type": "parse",
+    "flow": {
+      "type": "Fetch",
+      "location": "data/bad.json",
       "format": "json"
+    },
+    "expect_error": {
+      "type": "parse"
     }
   },
   {
     "name": "fetch-auto-invalid-json",
-    "filter": "fetch-auto-invalid-json",
+    "flow": {
+      "type": "Fetch",
+      "location": "data/bad.json"
+    },
     "expect": {
       "result": "not json {\n"
     }
   },
   {
+    "name": "fetch-dynamic",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": "data/d.json"
+        },
+        {
+          "type": "Fetch"
+        }
+      ]
+    },
+    "expect": {
+      "result": {
+        "x": 1
+      }
+    }
+  },
+  {
+    "name": "fetch-dynamic-absolute",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Shell",
+          "cmd": "echo \"\\\"$PWD/data/d.json\\\"\""
+        },
+        {
+          "type": "Fetch"
+        }
+      ]
+    },
+    "expect": {
+      "result": {
+        "x": 1
+      }
+    }
+  },
+  {
     "name": "fetch-missing",
-    "filter": "fetch-missing",
+    "flow": {
+      "type": "Fetch",
+      "location": "data/missing"
+    },
     "expect": {
       "error": {
         "type": "fetch",
-        "file": "<tests>/data/missing",
+        "location": "<tests>/data/missing",
         "message": "file not found"
       }
     }
   },
   {
-    "name": "fetch-relative",
-    "filter": "a/fetch-relative",
-    "expect": {
-      "result": 43
-    }
-  },
-  {
     "name": "fetch-url",
-    "filter": "fetch-url",
-    "expect": {
-      "error": {
-        "type": "fetch",
-        "file": "https://example.org/x",
-        "message": "remote files are not supported yet"
-      }
-    }
-  },
-  {
-    "name": "resolve-file",
-    "filter": "a/resolve-file",
-    "expect": {
-      "result": [
-        "<tests>/flow/a/x.csv",
-        "<tests>/data/y",
-        "<tests>/flow/a/z",
-        "/tmp/q",
-        "<tests>/w"
-      ]
-    }
-  },
-  {
-    "name": "resolve-file-in-shell",
-    "filter": "resolve-file-in-shell",
-    "expect": {
-      "result": {
-        "got": {
-          "x": 1
-        }
-      }
-    }
-  },
-  {
-    "name": "resolve-filter",
-    "filter": "resolve-filter",
-    "expect": {
-      "result": {
-        "r": "<tests>/flow/pkg",
-        "c": [
-          "<tests>/flow/pkg.jq",
-          "<tests>/flow/pkg/pkg.jq"
-        ],
-        "cj": [
-          "<tests>/flow/x.jq"
-        ]
-      }
-    }
-  },
-  {
-    "name": "resolve-file-in-directory-filter",
-    "filter": "resolve-file-in-directory-filter",
-    "expect": {
-      "result": "<tests>/flow/pkg/sub/data.txt"
-    }
-  },
-  {
-    "name": "lookup-directory",
-    "filter": "lookup-directory",
-    "expect": {
-      "result": {
-        "helper": "pkg/pkg.jq",
-        "here": "pkg/helper.jq"
-      }
-    }
-  },
-  {
-    "name": "lookup-file-first",
-    "filter": "lookup-file-first",
-    "expect": {
-      "result": "both.jq"
-    }
-  },
-  {
-    "name": "lookup-explicit-path",
-    "filter": "lookup-explicit-path",
-    "expect": {
-      "result": "both/both.jq"
-    }
-  },
-  {
-    "name": "lookup-nested-directory",
-    "filter": "lookup-nested-directory",
-    "expect": {
-      "result": "pkg/sub/sub.jq"
-    }
-  },
-  {
-    "name": "lookup-relative-directory",
-    "filter": "lookup-relative-directory",
-    "expect": {
-      "result": "pkg/sub/sub.jq"
-    }
-  },
-  {
-    "name": "lookup-sync-call-directory",
-    "filter": "lookup-sync-call-directory",
-    "expect": {
-      "result": "hi!"
-    }
-  },
-  {
-    "name": "lookup-next-directory",
-    "filter": "lookup-next-directory",
-    "expect": {
-      "result": "pkg/sub/sub.jq"
-    }
-  },
-  {
-    "name": "lookup-explicit-jq",
-    "filter": "lookup-explicit-jq",
-    "expect": {
-      "result": {
-        "helper": "pkg/pkg.jq",
-        "here": "pkg/helper.jq"
-      }
-    }
-  },
-  {
-    "name": "lookup-explicit-jq-no-fallback",
-    "filter": "lookup-explicit-jq-no-fallback",
-    "expect": {
-      "error": {
-        "type": "filter",
-        "filter": "<tests>/flow/pkg.jq",
-        "message": "filter not found",
-        "candidates": [
-          "<tests>/flow/pkg.jq"
-        ]
-      }
-    }
-  },
-  {
-    "name": "lookup-not-found",
-    "filter": "lookup-not-found",
-    "expect": {
-      "error": {
-        "type": "filter",
-        "filter": "<tests>/flow/nothere",
-        "message": "filter not found",
-        "candidates": [
-          "<tests>/flow/nothere.jq",
-          "<tests>/flow/nothere/nothere.jq"
-        ]
-      }
-    }
-  },
-  {
-    "name": "lookup-entry-directory",
-    "filter": "pkg",
-    "expect": {
-      "result": {
-        "helper": "pkg/pkg.jq",
-        "here": "pkg/helper.jq"
-      }
-    }
-  },
-  {
-    "name": "lookup-entry-relative-to-cwd",
-    "filter": "./flow/pkg",
-    "expect": {
-      "result": {
-        "helper": "pkg/pkg.jq",
-        "here": "pkg/helper.jq"
-      }
-    }
-  },
-  {
-    "name": "input-call",
-    "filter": "input-call",
-    "expect": {
-      "result": {
-        "got": {
-          "a": 1
-        }
-      }
-    }
-  },
-  {
-    "name": "input-sync-call",
-    "filter": "input-sync-call",
-    "expect": {
-      "result": 50
-    }
-  },
-  {
-    "name": "input-overrides-next-input",
-    "filter": "input-overrides-next-input",
-    "expect": {
-      "result": {
-        "got": "override"
-      }
-    }
-  },
-  {
-    "name": "input-on-array-action",
-    "filter": "input-on-array-action",
-    "expect": {
-      "result": [
-        30,
-        4
-      ]
-    }
-  },
-  {
-    "name": "input-alone",
-    "filter": "input-alone",
-    "expect": {
-      "result": 3
-    }
-  },
-  {
-    "name": "input-with-on-error-and-next",
-    "filter": "input-with-on-error-and-next",
-    "expect_jq": ".result.got.recovered | .type == \"filter\" and (.message | contains(\"sync boom\"))"
-  },
-  {
-    "name": "args-call",
-    "filter": "args-call",
-    "expect": {
-      "result": {
-        "rule": "subclass",
-        "n": 2,
-        "input": 10,
-        "named": {
-          "rule": "subclass",
-          "n": 2
-        }
-      }
-    }
-  },
-  {
-    "name": "args-sync-call",
-    "filter": "args-sync-call",
-    "expect": {
-      "result": 12
-    }
-  },
-  {
-    "name": "args-missing-variable",
-    "filter": "args-missing-variable",
+    "flow": {
+      "type": "Fetch",
+      "location": "https://example.org/x"
+    },
     "expect_error": {
-      "type": "filter",
-      "filter": "<tests>/flow/b/needsarg.jq",
-      "status": 3,
-      "message": "$missing is not defined"
+      "type": "fetch",
+      "location": "https://example.org/x"
+    }
+  },
+  {
+    "name": "fetch-input-not-string",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": 1
+        },
+        {
+          "type": "Fetch"
+        }
+      ]
+    },
+    "expect_error": {
+      "type": "type"
+    }
+  },
+  {
+    "name": "make-file-temp",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": {
+            "a": 1
+          }
+        },
+        {
+          "type": "MakeFile"
+        },
+        {
+          "type": "Fetch"
+        }
+      ]
+    },
+    "expect": {
+      "result": {
+        "a": 1
+      }
+    }
+  },
+  {
+    "name": "make-file-temp-path-absolute",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": "x"
+        },
+        {
+          "type": "MakeFile"
+        }
+      ]
+    },
+    "expect_jq": ".result | startswith(\"/\")"
+  },
+  {
+    "name": "make-file-static",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": "hello"
+        },
+        {
+          "type": "MakeFile",
+          "location": "out/static.txt"
+        }
+      ]
+    },
+    "expect": {
+      "result": "<tests>/out/static.txt"
+    }
+  },
+  {
+    "name": "make-file-static-check",
+    "flow": {
+      "type": "Fetch",
+      "location": "out/static.txt",
+      "format": "text"
+    },
+    "expect": {
+      "result": "hello"
+    }
+  },
+  {
+    "name": "make-file-named",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "location": {
+          "type": "Constant",
+          "data": "out/named.json"
+        }
+      },
+      "subflow": {
+        "type": "Cascade",
+        "subflows": [
+          {
+            "type": "Constant",
+            "data": [
+              1
+            ]
+          },
+          {
+            "type": "MakeFile"
+          },
+          {
+            "type": "Fetch"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "result": [
+        1
+      ]
+    }
+  },
+  {
+    "name": "make-file-json",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": "s"
+        },
+        {
+          "type": "MakeFile",
+          "input_format": "json"
+        },
+        {
+          "type": "Fetch",
+          "format": "text"
+        }
+      ]
+    },
+    "expect": {
+      "result": "\"s\"\n"
+    }
+  },
+  {
+    "name": "make-file-text-type-error",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": 1
+        },
+        {
+          "type": "MakeFile",
+          "input_format": "text"
+        }
+      ]
+    },
+    "expect_error": {
+      "type": "type"
+    }
+  },
+  {
+    "name": "make-file-unwritable",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": 1
+        },
+        {
+          "type": "MakeFile",
+          "location": "nonexistent-dir/x"
+        }
+      ]
+    },
+    "expect_error": {
+      "type": "make_file",
+      "location": "<tests>/nonexistent-dir/x"
+    }
+  },
+  {
+    "name": "jq-code",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": 2
+        },
+        {
+          "type": "Jq",
+          "filter_code": ". * 3"
+        }
+      ]
+    },
+    "expect": {
+      "result": 6
+    }
+  },
+  {
+    "name": "jq-ref",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": 2
+        },
+        {
+          "type": "Jq",
+          "filter_ref": "filters/double.jq"
+        }
+      ]
+    },
+    "expect": {
+      "result": 4
+    }
+  },
+  {
+    "name": "jq-named-inputs",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "x": {
+          "type": "Constant",
+          "data": [
+            1
+          ]
+        }
+      },
+      "subflow": {
+        "type": "Jq",
+        "filter_ref": "filters/named.jq"
+      }
+    },
+    "expect": {
+      "result": {
+        "var": [
+          1
+        ],
+        "args": {
+          "x": [
+            1
+          ]
+        },
+        "lib": [
+          1
+        ]
+      }
+    }
+  },
+  {
+    "name": "jq-big-named-input-via-library",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "big": {
+          "type": "Jq",
+          "filter_code": "\"x\" * 300000"
+        }
+      },
+      "subflow": {
+        "type": "Jq",
+        "filter_ref": "filters/big-named.jq"
+      }
+    },
+    "expect": {
+      "result": {
+        "length": 300000,
+        "bound": false
+      }
+    }
+  },
+  {
+    "name": "jq-big-named-input-not-a-variable",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "big": {
+          "type": "Jq",
+          "filter_code": "\"x\" * 300000"
+        }
+      },
+      "subflow": {
+        "type": "Jq",
+        "filter_ref": "filters/big-var.jq"
+      }
+    },
+    "expect_error": {
+      "type": "jq",
+      "message": "$big is not defined"
+    }
+  },
+  {
+    "name": "jq-zero-outputs",
+    "flow": {
+      "type": "Jq",
+      "filter_ref": "filters/none.jq"
+    },
+    "expect_error": {
+      "type": "jq",
+      "message": "exactly one value, got 0"
+    }
+  },
+  {
+    "name": "jq-two-outputs",
+    "flow": {
+      "type": "Jq",
+      "filter_ref": "filters/two.jq"
+    },
+    "expect_error": {
+      "type": "jq",
+      "message": "exactly one value, got 2"
+    }
+  },
+  {
+    "name": "jq-runtime-error",
+    "flow": {
+      "type": "Jq",
+      "filter_ref": "filters/fails.jq"
+    },
+    "expect_error": {
+      "type": "jq",
+      "filter": "<tests>/filters/fails.jq",
+      "status": 5,
+      "message": "boom"
+    }
+  },
+  {
+    "name": "jq-compile-error",
+    "flow": {
+      "type": "Jq",
+      "filter_code": "{"
+    },
+    "expect_error": {
+      "type": "jq",
+      "filter": "(filter_code)",
+      "status": 3
+    }
+  },
+  {
+    "name": "jq-missing-filter",
+    "flow": {
+      "type": "Jq",
+      "filter_ref": "filters/nonexistent.jq"
+    },
+    "expect_error": {
+      "type": "jq",
+      "message": "filter not found"
+    }
+  },
+  {
+    "name": "jq-resolve-file-relative-to-filter",
+    "flow": {
+      "type": "Jq",
+      "filter_ref": "filters/resolve.jq"
+    },
+    "expect": {
+      "result": [
+        "<tests>/filters/x.csv",
+        "<tests>/data/y",
+        "/tmp/q"
+      ]
+    }
+  },
+  {
+    "name": "jq-resolve-file-in-code-relative-to-base",
+    "flow": {
+      "type": "Jq",
+      "filter_code": "import \"async-jq\" as aj; aj::resolve_file(\"x\")"
+    },
+    "expect": {
+      "result": "<tests>/x"
+    }
+  },
+  {
+    "name": "jq-debug-passthrough",
+    "flow": {
+      "type": "Jq",
+      "filter_ref": "filters/debug.jq"
+    },
+    "expect": {
+      "result": 1
+    },
+    "stderr_contains": "[\"DEBUG:\",\"dbg msg\"]"
+  },
+  {
+    "name": "jq-library-path-missing",
+    "flow": {
+      "type": "Jq",
+      "filter_ref": "filters/import-module.jq"
+    },
+    "expect_error": {
+      "type": "jq",
+      "message": "module not found"
+    }
+  },
+  {
+    "name": "jq-library-path-option",
+    "flow": {
+      "type": "Jq",
+      "filter_ref": "filters/import-module.jq"
+    },
+    "options": [
+      "-L",
+      "modules"
+    ],
+    "expect": {
+      "result": "HI!"
+    }
+  },
+  {
+    "name": "jq-library-path-env",
+    "flow": {
+      "type": "Jq",
+      "filter_ref": "filters/import-module.jq"
+    },
+    "env": {
+      "JQ_LIBRARY_PATH": "/nonexistent::modules"
+    },
+    "expect": {
+      "result": "HI!"
+    }
+  },
+  {
+    "name": "jq-constructors",
+    "flow": {
+      "type": "Jq",
+      "filter_ref": "filters/constructors.jq"
+    },
+    "options": [
+      "--named",
+      "x=1"
+    ],
+    "expect_jq": ".result | length == 25 and (map(.type) | index(\"Exec\") != null) and .[17].location == \"<tests>/filters/x.json\""
+  },
+  {
+    "name": "exec-flow-ref",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": 0
+        },
+        {
+          "type": "Exec",
+          "flow_ref": "flows/sub/subflow.json"
+        }
+      ]
+    },
+    "expect": {
+      "result": 1
+    }
+  },
+  {
+    "name": "exec-flow-static",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": 4
+        },
+        {
+          "type": "Exec",
+          "flow": {
+            "type": "Jq",
+            "filter_code": ". + 1"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "result": 5
+    }
+  },
+  {
+    "name": "exec-dynamic",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "flow": {
+          "type": "Constant",
+          "data": {
+            "type": "Jq",
+            "filter_code": ". * 7"
+          }
+        }
+      },
+      "subflow": {
+        "type": "Cascade",
+        "subflows": [
+          {
+            "type": "Constant",
+            "data": 3
+          },
+          {
+            "type": "Exec"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "result": 21
+    }
+  },
+  {
+    "name": "exec-dynamic-computed",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "flow": {
+          "type": "Jq",
+          "filter_ref": "filters/build-flow.jq"
+        }
+      },
+      "subflow": {
+        "type": "Exec"
+      }
+    },
+    "expect": {
+      "result": 10
+    }
+  },
+  {
+    "name": "exec-passes-named-inputs",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "x": {
+          "type": "Constant",
+          "data": 1
+        },
+        "flow": {
+          "type": "Constant",
+          "data": {
+            "type": "Get",
+            "input_id": "x"
+          }
+        }
+      },
+      "subflow": {
+        "type": "Exec"
+      }
+    },
+    "expect": {
+      "result": 1
+    }
+  },
+  {
+    "name": "exec-removes-flow",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "flow": {
+          "type": "Constant",
+          "data": {
+            "type": "Get",
+            "input_id": "flow"
+          }
+        }
+      },
+      "subflow": {
+        "type": "Exec"
+      }
+    },
+    "expect_error": {
+      "type": "input",
+      "input_id": "flow"
+    }
+  },
+  {
+    "name": "exec-static-removes-flow",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "flow": {
+          "type": "Constant",
+          "data": 1
+        }
+      },
+      "subflow": {
+        "type": "Exec",
+        "flow": {
+          "type": "Get",
+          "input_id": "flow"
+        }
+      }
+    },
+    "expect_error": {
+      "type": "input"
+    }
+  },
+  {
+    "name": "exec-dynamic-missing",
+    "flow": {
+      "type": "Exec"
+    },
+    "expect_error": {
+      "type": "input",
+      "input_id": "flow"
+    }
+  },
+  {
+    "name": "exec-dynamic-invalid",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "flow": {
+          "type": "Constant",
+          "data": {
+            "type": "Nope"
+          }
+        }
+      },
+      "subflow": {
+        "type": "Exec"
+      }
+    },
+    "expect_error": {
+      "type": "flow"
+    }
+  },
+  {
+    "name": "exec-flow-ref-missing",
+    "flow": {
+      "type": "Exec",
+      "flow_ref": "flows/nonexistent.json"
+    },
+    "expect_error": {
+      "type": "fetch"
+    }
+  },
+  {
+    "name": "exec-flow-ref-not-json",
+    "flow": {
+      "type": "Exec",
+      "flow_ref": "flows/not-json.json"
+    },
+    "expect_error": {
+      "type": "parse"
+    }
+  },
+  {
+    "name": "exec-recursion",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Constant",
+          "data": 3
+        },
+        {
+          "type": "Exec",
+          "flow_ref": "flows/countdown.json"
+        }
+      ]
+    },
+    "expect": {
+      "result": "done"
+    }
+  },
+  {
+    "name": "flow-file",
+    "flow_file": "flows/sub/subflow.json",
+    "expect": {
+      "result": 1
+    }
+  },
+  {
+    "name": "flow-file-input",
+    "flow_file": "flows/countdown.json",
+    "options": [
+      "--input",
+      "2"
+    ],
+    "expect": {
+      "result": "done"
+    }
+  },
+  {
+    "name": "flow-file-invalid",
+    "flow_file": "flows/invalid.json",
+    "expect_error": {
+      "type": "flow",
+      "message": "missing field(s) data"
+    }
+  },
+  {
+    "name": "flow-file-missing",
+    "flow_file": "flows/nonexistent.json",
+    "expect_error": {
+      "type": "fetch"
+    }
+  },
+  {
+    "name": "invalid-unknown-operator",
+    "flow": {
+      "type": "Nope"
+    },
+    "expect_error": {
+      "type": "flow",
+      "message": "unknown operator"
+    }
+  },
+  {
+    "name": "invalid-no-type",
+    "flow": {
+      "data": 1
+    },
+    "expect_error": {
+      "type": "flow",
+      "message": "must have a type"
+    }
+  },
+  {
+    "name": "invalid-not-object",
+    "flow": [
+      1
+    ],
+    "expect_error": {
+      "type": "flow",
+      "message": "must be an object"
     }
   },
   {
     "name": "invalid-unknown-field",
-    "filter": "invalid-unknown-field",
+    "flow": {
+      "type": "Constant",
+      "data": 1,
+      "next": "x"
+    },
     "expect_error": {
-      "type": "step",
-      "message": "unknown field(s) nxt"
+      "type": "flow",
+      "message": "unknown field(s) next"
     }
   },
   {
-    "name": "invalid-two-main-fields",
-    "filter": "invalid-two-main-fields",
+    "name": "invalid-missing-field",
+    "flow": {
+      "type": "Get"
+    },
     "expect_error": {
-      "type": "step",
-      "message": "a step can have only one of"
+      "type": "flow",
+      "message": "missing field(s) input_id"
     }
   },
   {
-    "name": "invalid-format-on-call",
-    "filter": "invalid-format-on-call",
+    "name": "invalid-function-call",
+    "flow": {
+      "type": "FunctionCall",
+      "ref": "x"
+    },
     "expect_error": {
-      "type": "step",
-      "message": "format can only be used with shell or fetch_file"
+      "type": "flow",
+      "message": "not supported yet"
+    }
+  },
+  {
+    "name": "invalid-jq-both",
+    "flow": {
+      "type": "Jq",
+      "filter_ref": "a",
+      "filter_code": "."
+    },
+    "expect_error": {
+      "type": "flow"
+    }
+  },
+  {
+    "name": "invalid-jq-none",
+    "flow": {
+      "type": "Jq"
+    },
+    "expect_error": {
+      "type": "flow"
+    }
+  },
+  {
+    "name": "invalid-exec-both",
+    "flow": {
+      "type": "Exec",
+      "flow_ref": "a",
+      "flow": {
+        "type": "Identity"
+      }
+    },
+    "expect_error": {
+      "type": "flow"
+    }
+  },
+  {
+    "name": "invalid-let-name",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "bad-name": {
+          "type": "Constant",
+          "data": 1
+        }
+      },
+      "subflow": {
+        "type": "Identity"
+      }
+    },
+    "expect_error": {
+      "type": "flow",
+      "message": "valid named input names"
+    }
+  },
+  {
+    "name": "invalid-let-reserved-name",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "__x": {
+          "type": "Constant",
+          "data": 1
+        }
+      },
+      "subflow": {
+        "type": "Identity"
+      }
+    },
+    "expect_error": {
+      "type": "flow"
+    }
+  },
+  {
+    "name": "invalid-get-name",
+    "flow": {
+      "type": "Get",
+      "input_id": "ENV"
+    },
+    "expect_error": {
+      "type": "flow"
+    }
+  },
+  {
+    "name": "invalid-switch-case",
+    "flow": {
+      "type": "Switch",
+      "cases": [
+        {
+          "when": {
+            "type": "Identity"
+          }
+        }
+      ]
+    },
+    "expect_error": {
+      "type": "flow"
     }
   },
   {
     "name": "invalid-format",
-    "filter": "invalid-format",
+    "flow": {
+      "type": "Shell",
+      "cmd": "x",
+      "format": "xml"
+    },
     "expect_error": {
-      "type": "step",
-      "message": "unknown format"
+      "type": "flow",
+      "message": "format"
     }
   },
   {
-    "name": "invalid-next-and-sync-next",
-    "filter": "invalid-next-and-sync-next",
+    "name": "invalid-preserve-order",
+    "flow": {
+      "type": "Parallel",
+      "subflows": [],
+      "preserve_order": "yes"
+    },
     "expect_error": {
-      "type": "step",
-      "message": "can't have both next and sync_next"
+      "type": "flow"
     }
   },
   {
-    "name": "invalid-input-with-result",
-    "filter": "invalid-input-with-result",
+    "name": "invalid-nested",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Identity"
+        },
+        {
+          "type": "Sequence",
+          "subflows": [
+            {
+              "type": "Parallel",
+              "subflows": [
+                {
+                  "type": "Constant",
+                  "data": 1
+                },
+                {
+                  "type": "Constant"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
     "expect_error": {
-      "type": "step",
-      "message": "input can't be used with result or error"
+      "type": "flow",
+      "flow": {
+        "type": "Constant"
+      }
     }
   },
   {
-    "name": "invalid-args-on-shell",
-    "filter": "invalid-args-on-shell",
+    "name": "invalid-checked-before-running",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Shell",
+          "cmd": "touch out/ran"
+        },
+        {
+          "type": "Nope"
+        }
+      ]
+    },
     "expect_error": {
-      "type": "step",
-      "message": "args can only be used with call or sync_call"
+      "type": "flow"
     }
   },
   {
-    "name": "invalid-args-name",
-    "filter": "invalid-args-name",
+    "name": "invalid-checked-before-running-check",
+    "flow": {
+      "type": "Fetch",
+      "location": "out/ran"
+    },
     "expect_error": {
-      "type": "step",
-      "message": "valid jq variable names"
+      "type": "fetch"
     }
   },
   {
-    "name": "invalid-args-reserved",
-    "filter": "invalid-args-reserved",
-    "expect_error": {
-      "type": "step",
-      "message": "are reserved"
-    }
-  },
-  {
-    "name": "invalid-args-not-object",
-    "filter": "invalid-args-not-object",
-    "expect_error": {
-      "type": "step",
-      "message": "args must be an object"
-    }
-  },
-  {
-    "name": "large-continuation",
-    "filter": "large-continuation",
-    "expect_jq": ".result == (\"a\" * 200000)"
-  },
-  {
-    "name": "large-input",
-    "filter": "large-input",
+    "name": "large-through-cascade",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Jq",
+          "filter_code": "\"x\" * 300000"
+        },
+        {
+          "type": "Identity"
+        },
+        {
+          "type": "Jq",
+          "filter_code": "length"
+        }
+      ]
+    },
     "expect": {
       "result": 300000
     }
   },
   {
-    "name": "large-error-message",
-    "filter": "large-error-message",
-    "expect_jq": ".error.type == \"filter\" and (.error.message | length) > 200000",
-    "expect_exit": 1
-  },
-  {
-    "name": "large-shell-command",
-    "filter": "large-shell-command",
-    "expect_jq": ".error.type == \"shell\" and .error.status == 3 and (.error.command | length) > 200000",
-    "expect_exit": 1
-  },
-  {
-    "name": "cli-default-input",
-    "filter": "echoin",
-    "expect": {
-      "result": {
-        "top_input": null,
-        "args": {}
+    "name": "large-through-let-and-get",
+    "flow": {
+      "type": "Let",
+      "assign": {
+        "x": {
+          "type": "Jq",
+          "filter_code": "\"x\" * 300000"
+        }
+      },
+      "subflow": {
+        "type": "Cascade",
+        "subflows": [
+          {
+            "type": "Get",
+            "input_id": "x"
+          },
+          {
+            "type": "Jq",
+            "filter_code": "length"
+          }
+        ]
       }
+    },
+    "expect": {
+      "result": 300000
     }
   },
   {
-    "name": "cli-input",
-    "filter": "echoin",
-    "options": [
-      "--input",
-      "{\"x\":[1,2]}"
-    ],
-    "expect": {
-      "result": {
-        "top_input": {
-          "x": [
-            1,
-            2
-          ]
+    "name": "large-shell-output",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Shell",
+          "cmd": "head -c 300000 /dev/zero | tr '\\0' a"
         },
-        "args": {}
-      }
+        {
+          "type": "Jq",
+          "filter_code": "length"
+        }
+      ]
+    },
+    "expect": {
+      "result": 300000
+    }
+  },
+  {
+    "name": "large-shell-stdin",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Jq",
+          "filter_code": "\"x\" * 300000"
+        },
+        {
+          "type": "Shell",
+          "cmd": "wc -c"
+        }
+      ]
+    },
+    "expect_jq": ".result == 300000"
+  },
+  {
+    "name": "large-parallel",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Parallel",
+          "subflows": [
+            {
+              "type": "Jq",
+              "filter_code": "\"x\" * 300000"
+            },
+            {
+              "type": "Jq",
+              "filter_code": "\"y\" * 300000"
+            }
+          ],
+          "preserve_order": true
+        },
+        {
+          "type": "Jq",
+          "filter_code": "map(length)"
+        }
+      ]
+    },
+    "expect": {
+      "result": [
+        300000,
+        300000
+      ]
+    }
+  },
+  {
+    "name": "large-make-file-fetch",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Jq",
+          "filter_code": "\"x\" * 300000"
+        },
+        {
+          "type": "MakeFile"
+        },
+        {
+          "type": "Fetch"
+        },
+        {
+          "type": "Jq",
+          "filter_code": "length"
+        }
+      ]
+    },
+    "expect": {
+      "result": 300000
+    }
+  },
+  {
+    "name": "large-for-each",
+    "flow": {
+      "type": "Cascade",
+      "subflows": [
+        {
+          "type": "Jq",
+          "filter_code": "[range(3) | \"x\" * 200000]"
+        },
+        {
+          "type": "ForEach",
+          "subflow": {
+            "type": "Jq",
+            "filter_code": "length"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "result": [
+        200000,
+        200000,
+        200000
+      ]
     }
   },
   {
     "name": "cli-stdin",
-    "filter": "echoin",
+    "flow": {
+      "type": "Identity"
+    },
     "options": [
       "--stdin"
     ],
-    "stdin": "from stdin",
+    "stdin": {
+      "from": "stdin"
+    },
     "expect": {
       "result": {
-        "top_input": "from stdin",
-        "args": {}
-      }
-    }
-  },
-  {
-    "name": "cli-args",
-    "filter": "echoin",
-    "options": [
-      "--args",
-      "{\"p\":1}",
-      "--input",
-      "2"
-    ],
-    "expect": {
-      "result": {
-        "top_input": 2,
-        "args": {
-          "p": 1
-        }
+        "from": "stdin"
       }
     }
   },
   {
     "name": "cli-large-stdin",
-    "filter": "len",
+    "flow": {
+      "type": "Jq",
+      "filter_code": "length"
+    },
     "options": [
       "--stdin"
     ],
@@ -853,30 +3113,10 @@
     }
   },
   {
-    "name": "cli-invalid-args",
-    "filter": "echoin",
-    "options": [
-      "--args",
-      "[1]"
-    ],
-    "expect_error": {
-      "type": "step",
-      "message": "args must be an object"
-    }
-  },
-  {
-    "name": "cli-invalid-input",
-    "filter": "echoin",
-    "options": [
-      "--input",
-      "nope"
-    ],
-    "expect_exit": 1,
-    "stderr_contains": "Usage:"
-  },
-  {
     "name": "cli-several-stdin-values",
-    "filter": "echoin",
+    "flow": {
+      "type": "Identity"
+    },
     "options": [
       "--stdin"
     ],
@@ -885,83 +3125,51 @@
     "stderr_contains": "exactly one JSON value"
   },
   {
-    "name": "library-path-missing",
-    "filter": "import-module",
-    "expect_error": {
-      "type": "filter",
-      "message": "module not found: acme/strutil"
-    }
-  },
-  {
-    "name": "library-path-option",
-    "filter": "import-module",
-    "options": [
-      "-L",
-      "modules"
-    ],
-    "expect": {
-      "result": "HI!"
-    }
-  },
-  {
-    "name": "library-path-long-option",
-    "filter": "import-module",
-    "options": [
-      "--library-path",
-      "modules"
-    ],
-    "expect": {
-      "result": "HI!"
-    }
-  },
-  {
-    "name": "library-path-sync-call",
-    "filter": "sync-import-module",
-    "options": [
-      "-L",
-      "modules"
-    ],
-    "expect": {
-      "result": "HEY!"
-    }
-  },
-  {
-    "name": "library-path-env",
-    "filter": "import-module",
-    "env": {
-      "JQ_LIBRARY_PATH": "modules"
+    "name": "cli-invalid-input",
+    "flow": {
+      "type": "Identity"
     },
-    "expect": {
-      "result": "HI!"
-    }
+    "options": [
+      "--input",
+      "nope"
+    ],
+    "expect_exit": 1,
+    "stderr_contains": "Usage:"
   },
   {
-    "name": "library-path-env-skips-missing",
-    "filter": "import-module",
-    "env": {
-      "JQ_LIBRARY_PATH": "/nonexistent::modules"
+    "name": "cli-invalid-named-name",
+    "flow": {
+      "type": "Identity"
     },
-    "expect": {
-      "result": "HI!"
-    }
+    "options": [
+      "--named",
+      "bad-name=1"
+    ],
+    "expect_exit": 1,
+    "stderr_contains": "invalid named input name"
   },
   {
-    "name": "library-path-option-missing-dir",
-    "filter": "import-module",
+    "name": "cli-named-without-value",
+    "flow": {
+      "type": "Identity"
+    },
+    "options": [
+      "--named",
+      "x"
+    ],
+    "expect_exit": 1,
+    "stderr_contains": "NAME=JSON"
+  },
+  {
+    "name": "cli-library-path-missing-dir",
+    "flow": {
+      "type": "Identity"
+    },
     "options": [
       "-L",
       "nonexistent"
     ],
     "expect_exit": 1,
-    "stderr_contains": "no such directory: nonexistent"
-  },
-  {
-    "name": "engine-library-first",
-    "filter": "resolve-filter",
-    "options": [
-      "-L",
-      "modules"
-    ],
-    "expect_jq": ".result.r == \"<tests>/flow/pkg\""
+    "stderr_contains": "no such directory"
   }
 ]

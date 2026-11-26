@@ -1,0 +1,12 @@
+{
+  "type": "If",
+  "condition": {"type": "Jq", "filter_code": ". > 0"},
+  "then": {
+    "type": "Cascade",
+    "subflows": [
+      {"type": "Jq", "filter_code": ". - 1"},
+      {"type": "Exec", "flow_ref": "./countdown.json"}
+    ]
+  },
+  "else": {"type": "Constant", "data": "done"}
+}

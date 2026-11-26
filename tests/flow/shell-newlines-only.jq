@@ -1,1 +1,0 @@
-{shell: "printf '\\n\\n'"}

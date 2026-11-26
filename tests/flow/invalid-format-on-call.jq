@@ -1,1 +1,0 @@
-{call: "show", format: "json"}
