@@ -1,41 +1,41 @@
 #!/bin/sh
-# async-jq: runs an asynchronous jq filter (see README.md and SPEC.md).
+# async-jq: runs an async-jq flow (see README.md and SPEC.md).
 #
-# Usage: async-jq [options] <filter>
+# Usage: async-jq [options] <flow.json>
+#        async-jq [options] --flow JSON
 #
-# Calls <filter> (resolved like a `call` reference: "main" is
-# $FLOW_PATH/main.jq or $FLOW_PATH/main/main.jq, "./x" is relative to the
-# current directory) and recursively executes the steps it returns.
-# Prints the final result (as JSON) on stdout, or the error on stderr
-# (exit status 1).
+# Runs the flow in the given flow document (relative paths in it being
+# relative to the document's directory), or the flow given in place
+# (relative paths being relative to the current directory). Prints the
+# result (as JSON) on stdout, or the error on stderr (exit status 1).
 #
 # Options:
-#   --input JSON   input of the filter (default: null)
-#   --stdin        read the input of the filter (one JSON value) from stdin
-#   --args JSON    object of named arguments for the filter (as `args` in a
-#                  call step)
-#   --envelope     print the final envelope, {"result": ...} or
-#                  {"error": ...}, on stdout (the exit status is still 1 on
-#                  error)
+#   --flow JSON     the flow to run, given in place of a flow document
+#   --input JSON    input of the flow (default: null)
+#   --stdin         read the input of the flow (one JSON value) from stdin
+#   --named NAME=JSON
+#                   bind the named input NAME (can be repeated)
+#   --envelope      print the outcome as {"result": ...} or {"error": ...}
+#                   on stdout (the exit status is still 1 on error)
 #   -L DIR, --library-path DIR
-#                  add DIR to the jq search path of the filters (as jq's -L;
-#                  can be repeated)
-#   -h, --help     show this help
+#                   add DIR to the jq search path of the filters (as jq's -L;
+#                   can be repeated)
+#   -h, --help      show this help
 #
-# Configuration (environment variables, relative to the current directory):
-#   FLOW_PATH        root for filter references (default: flow)
-#   DATA_PATH        root for data file references (default: .)
+# Environment:
 #   JQ_LIBRARY_PATH  colon-separated directories added to the jq search path
 #                    of the filters, after the -L ones (set e.g. by
 #                    `jqpm exec`; directories that don't exist are skipped)
 
 usage() {
-    echo "Usage: $0 [--input JSON | --stdin] [--args JSON] [--envelope] [-L DIR]... <filter>" >&2
+    echo "Usage: $0 [--input JSON | --stdin] [--named NAME=JSON]... [--envelope] [-L DIR]... (<flow.json> | --flow JSON)" >&2
     exit 1
 }
 
 INPUT=null
-ARGS=null
+NAMED='{}'
+FLOW=
+HAS_FLOW=
 ENVELOPE_OUTPUT=
 LIBRARY_DIRS=
 add_library_dir() {
@@ -44,9 +44,22 @@ add_library_dir() {
 }
 while [ $# -gt 0 ]; do
     case "$1" in
+        --flow) [ $# -ge 2 ] || usage; FLOW=$2; HAS_FLOW=1; shift 2 ;;
         --input) [ $# -ge 2 ] || usage; INPUT=$2; shift 2 ;;
         --stdin) INPUT=$(cat) || exit 1; shift ;;
-        --args) [ $# -ge 2 ] || usage; ARGS=$2; shift 2 ;;
+        --named)
+            [ $# -ge 2 ] || usage
+            case "$2" in
+                *=*) ;;
+                *) echo "$0: --named expects NAME=JSON, got: $2" >&2; exit 1 ;;
+            esac
+            NAMED=$(printf '%s\n' "${2#*=}" | jq -sc --argjson named "$NAMED" --arg name "${2%%=*}" '
+                if ($name | test("^[A-Za-z_][A-Za-z0-9_]*$") | not) or $name == "ENV" or $name == "ARGS"
+                    or ($name | startswith("__"))
+                then error("invalid named input name: \($name)")
+                elif length != 1 then error("the value of \($name) must be exactly one JSON value")
+                else $named + {($name): .[0]} end') || exit 1
+            shift 2 ;;
         --envelope) ENVELOPE_OUTPUT=1; shift ;;
         -L|--library-path)
             [ $# -ge 2 ] || usage
@@ -57,7 +70,11 @@ while [ $# -gt 0 ]; do
         *) break ;;
     esac
 done
-[ $# -eq 1 ] || usage
+if [ -n "$HAS_FLOW" ]; then
+    [ $# -eq 0 ] || usage
+else
+    [ $# -eq 1 ] || usage
+fi
 
 # the library is in ../lib relative to this script (following symlinks, so
 # that the script can be linked from a directory in the PATH)
@@ -69,9 +86,7 @@ while [ -L "$SELF" ]; do
         *) SELF=$(dirname "$SELF")/$LINK ;;
     esac
 done
-LIB_PATH=$(CDPATH= cd -- "$(dirname "$SELF")/../lib" && pwd) || exit 1
-FLOW_PATH=$(CDPATH= cd -- "${FLOW_PATH:-flow}" && pwd) || exit 1
-DATA_PATH=$(CDPATH= cd -- "${DATA_PATH:-.}" && pwd) || exit 1
+__aj_lib=$(CDPATH= cd -- "$(dirname "$SELF")/../lib" && pwd) || exit 1
 
 # JQ_LIBRARY_PATH: colon-separated, after the -L directories
 REST=$JQ_LIBRARY_PATH
@@ -85,29 +100,45 @@ while [ -n "$REST" ]; do
     fi
 done
 
-CONFIG=$(printf '%s' "$LIBRARY_DIRS" | jq -Rsc --arg lib_path "$LIB_PATH" --arg flow_path "$FLOW_PATH" --arg data_path "$DATA_PATH" '
-    {lib_path: $lib_path, library_path: (split("\n") | map(select(. != ""))),
-     flow_path: $flow_path, data_path: $data_path}') || exit 1
+# jq search path of the filters: the library, the configured directories,
+# then jq's default search path
+__aj_search=$(jq -nr --arg lib "$__aj_lib" --arg dirs "$LIBRARY_DIRS" '
+    [$lib] + ($dirs | split("\n") | map(select(. != ""))) + ["~/.jq", "$ORIGIN/../lib/jq", "$ORIGIN/../lib"] |
+    map("-L " + @sh) | join(" ")') || exit 1
+
+__aj_tmp=$(mktemp -d) || exit 1
+trap 'rm -rf "$__aj_tmp"' EXIT
+trap 'exit 1' INT TERM HUP
+
+. "$__aj_lib/runtime.sh"
 
 # the input goes to jq on stdin (it may be large), and must be one JSON value
-STEP=$(printf '%s\n' "$INPUT" | jq -sc --arg call "$1" --argjson args "$ARGS" '
-    if length != 1 then error("the input must be exactly one JSON value, got \(length)") else .[0] end |
-    {call: $call, input: .} + (if $args == null then {} else {args: $args} end)') || usage
+__in=$(printf '%s\n' "$INPUT" | jq -sc '
+    if length != 1 then error("the input must be exactly one JSON value, got \(length)") else .[0] end') || usage
+__scope=$__aj_tmp/scope.json
+printf '%s\n' "$NAMED" > "$__scope"
 
-CMD=$(printf '%s\n' "$STEP" |
-    jq -rn -L "$LIB_PATH" -f "$LIB_PATH/to-shell.jq" --argjson config "$CONFIG" --arg base "$PWD") || exit 1
-ENVELOPE=$(__in=null; eval "$CMD")
+if [ -n "$HAS_FLOW" ]; then
+    __script=$(printf '%s\n' "$FLOW" | __aj_parse json) || { echo "$0: invalid --flow: $__script" >&2; exit 1; }
+    __script=$(printf '%s\n' "$__script" | __aj_compile "$PWD") || exit 1
+    OUTCOME=$(eval "$__script")
+    STATUS=$?
+else
+    OUTCOME=$(__aj_exec_file "$(__aj_resolve "$PWD" "$1")")
+    STATUS=$?
+fi
+[ -n "$OUTCOME" ] || { OUTCOME=$(__aj_engine_error "the flow ended without an outcome"); STATUS=1; }
 
-if printf '%s\n' "$ENVELOPE" | jq -e 'has("error")' >/dev/null; then
+if [ "$STATUS" -ne 0 ]; then
     if [ -n "$ENVELOPE_OUTPUT" ]; then
-        printf '%s\n' "$ENVELOPE"
+        printf '%s\n' "$OUTCOME" | jq -c '{error: .}'
     else
-        printf '%s\n' "$ENVELOPE" | jq -r '"Error: \(.error | if type == "string" then . else tojson end)"' >&2
+        printf '%s\n' "$OUTCOME" | jq -r '"Error: \(if type == "string" then . else tojson end)"' >&2
     fi
     exit 1
 fi
 if [ -n "$ENVELOPE_OUTPUT" ]; then
-    printf '%s\n' "$ENVELOPE"
+    printf '%s\n' "$OUTCOME" | jq -c '{result: .}'
 else
-    printf '%s\n' "$ENVELOPE" | jq '.result'
+    printf '%s\n' "$OUTCOME" | jq .
 fi

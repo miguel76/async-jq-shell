@@ -201,14 +201,16 @@ by the filter or a filter that doesn't compile.
 
 The named inputs are available to the filter:
 
-- as variables: a named input `x` is `$x`, and all of them are in
-  `$ARGS.named`. An implementation may limit the size of the values bound as
-  variables, failing with a `jq` error beyond it; it must allow at least
-  100 KB per value;
+- as variables: a named input `x` is `$x`, and is also in `$ARGS.named`. An
+  implementation may limit the size of the values bound as variables (it
+  must allow at least 100 KB per value): larger ones are not bound, and are
+  only available through `named_input`;
 - through the library function `named_input("x")`, with no size limit (see
   [Library](#library)).
 
 A filter referring to a variable that is not bound fails to compile.
+`$ARGS.named` may also hold entries reserved for the engine, with names
+starting with `__`.
 
 The search path of the filter for `import` and `include` starts with the
 directory holding the [library](#library), and may be extended by the
@@ -285,13 +287,14 @@ Errors are JSON values. The errors raised by the engine are objects with a
 | Type | Raised when | Fields |
 |---|---|---|
 | `flow` | a flow is invalid | `message`, `flow` |
-| `input` | a Get refers to an unbound named input | `input_id` |
+| `input` | a Get (or an Exec without `flow_ref` and `flow`) refers to an unbound named input | `input_id`, `message` |
 | `type` | a value has the wrong type (e.g. the input of a ForEach) | `message` |
 | `shell` | a shell command fails | `cmd`, `status` |
 | `fetch` | a file can't be read | `location`, `message` |
 | `make_file` | a file can't be written | `location`, `message` |
 | `parse` | a text can't be parsed in the requested format | `format`, `message` |
-| `jq` | a jq filter fails to compile, raises an error, or doesn't output exactly one value | `filter`, `message` |
+| `jq` | a jq filter fails to compile, raises an error, or doesn't output exactly one value | `filter`, `status`, `message` |
+| `engine` | the engine itself fails (e.g. it can't create a temporary file) | `message` |
 
 Implementations may add fields. Errors raised with an Error flow, and those
 re-raised by a Try's handler, are whatever value they give.

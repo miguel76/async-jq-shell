@@ -1,16 +1,12 @@
-# async-jq library, available to every filter run by the engine:
+# async-jq library (see SPEC.md, "Library"), to be imported by filters:
 #
-#   include "async-jq";
+#   import "async-jq" as aj;
 #
-# Public API:
-#   resolve_file, resolve_file($ref)      absolute path of a data file
-#   resolve_filter, resolve_filter($ref)  absolute reference to a filter
-#   filter_candidates, filter_candidates($ref)
-#                                         files that may hold a filter
+# Public API: resolve_file, named_input, and the flow constructors. Names
+# starting with "_" are internal (used by the engine).
 #
-# References are resolved as described in `_resolve` below. Relative
-# references ("./x", "../x") are relative to the directory of the filter
-# currently executed by the engine (not of the module calling the function).
+# Note: the constructor `error(e)` shadows jq's builtin `error/1` in a filter
+# that *includes* this module; importing it avoids that.
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -34,69 +30,70 @@ def _dirname:
 
 def _is_url: test("^[A-Za-z][A-Za-z0-9+.-]*://");
 
-# ---------------------------------------------------------------------------
-# Resolution of references
-#
-# Resolves the reference in input to an absolute path (or URL):
-#   "scheme://..."        a URL, kept as it is
-#   "/abs/path"           an absolute path
-#   "./path", "../path"   relative to $base, the directory of the current filter
-#   "path"                relative to $root, the root directory configured for
-#                         this kind of file (flow_path for filters, data_path
-#                         for data files)
-#
-# Extension point: further kinds of references can be added here as new
-# branches, e.g. "<module>:<path>" for modules registered in the configuration
-# (mapping module names to directories or URLs), or a search path (as jq's
-# -L) tried in order. Being resolved to absolute paths early, the references
-# in a step can then be moved freely between filters (see `next` insertion in
-# to-shell.jq).
-def _resolve($base; $root):
-    if type != "string" then error("invalid file reference: \(tojson)")
+# Resolves the path in input against the absolute directory $base (see
+# SPEC.md, "Paths"): URLs are kept as they are, absolute paths normalized,
+# relative paths made absolute.
+def _resolve_path($base):
+    if type != "string" then error("invalid path: \(tojson)")
     elif _is_url then .
     elif startswith("/") then _normalize_path
-    elif . == "." or . == ".." or startswith("./") or startswith("../") then
-        "\($base)/\(.)" | _normalize_path
-    else
-        "\($root)/\(.)" | _normalize_path
+    else "\($base)/\(.)" | _normalize_path
     end;
-
-# Filter references follow jq's convention for modules: "foo/bar" is the
-# file foo/bar.jq or, if it doesn't exist, foo/bar/bar.jq. A reference ending
-# in ".jq" is the file itself.
-#
-# As jq can't check whether a file exists, a filter reference is resolved in
-# two stages: here, to an absolute reference (still without the ".jq"
-# extension, unless given); then, by the engine at execution time, to the
-# first existing file among its candidates (`_filter_candidates`).
-
-# $config: engine configuration ({lib_path, library_path, flow_path, data_path})
-def resolve_filter_ref($base; $config):
-    if _is_url then error("remote filters are not supported: \(.)") else . end |
-    _resolve($base; $config.flow_path);
-
-# candidate files, in lookup order, for an absolute filter reference
-def _filter_candidates:
-    if endswith(".jq") then [.]
-    else [. + ".jq", "\(.)/\(split("/") | last).jq"]
-    end;
-
-def resolve_file_ref($base; $config):
-    _resolve($base; $config.data_path);
 
 # ---------------------------------------------------------------------------
-# API for filters run by the engine, which passes them its context as
-# --argjson engine_context '{"base": <dir of the filter>, "config": {...}}'
+# Context given by the engine to the filters it runs, as
+# --slurpfile __async_jq <file holding {"base": ..., "named": {...}}>
 
-def _engine_context:
-    $ARGS.named.engine_context //
-    error("no engine context: the filter must be run by the engine");
+def _context:
+    ($ARGS.named.__async_jq // error("no async-jq context: the filter must be run by the engine"))[0];
 
-def resolve_file: _engine_context as $c | resolve_file_ref($c.base; $c.config);
-def resolve_file($ref): $ref | resolve_file;
+# absolute path of a file, relative to the filter's directory (or the base of
+# the Jq flow, for a filter given as code)
+def resolve_file: _resolve_path(_context.base);
+def resolve_file($path): $path | resolve_file;
 
-def resolve_filter: _engine_context as $c | resolve_filter_ref($c.base; $c.config);
-def resolve_filter($ref): $ref | resolve_filter;
+# value of a named input (with no size limit, unlike the $name variables)
+def named_input($name):
+    _context.named |
+    if has($name) then .[$name] else error("no named input \($name | tojson)") end;
 
-def filter_candidates: resolve_filter | _filter_candidates;
-def filter_candidates($ref): $ref | filter_candidates;
+# ---------------------------------------------------------------------------
+# Flow constructors (paths are made absolute with resolve_file)
+
+def constant($data): {type: "Constant", data: $data};
+def identity: {type: "Identity"};
+def get($id): {type: "Get", input_id: $id};
+
+def cascade($flows): {type: "Cascade", subflows: $flows};
+def sequence($flows): {type: "Sequence", subflows: $flows};
+def parallel($flows): {type: "Parallel", subflows: $flows};
+def parallel($flows; $preserve_order): {type: "Parallel", subflows: $flows, preserve_order: $preserve_order};
+
+def let($assign; $flow): {type: "Let", assign: $assign, subflow: $flow};
+
+def if_then_else($condition; $then; $else): {type: "If", condition: $condition, then: $then, else: $else};
+def if_then($condition; $then): {type: "If", condition: $condition, then: $then};
+def switch($cases; $default): {type: "Switch", cases: $cases, default: $default};
+def switch($cases): {type: "Switch", cases: $cases};
+def try_catch($flow; $handler): {type: "Try", subflow: $flow, catch: $handler};
+def for_each($flow): {type: "ForEach", subflow: $flow};
+def for_each($flow; $parallel; $preserve_order):
+    {type: "ForEach", subflow: $flow, parallel: $parallel, preserve_order: $preserve_order};
+def loop($condition; $flow): {type: "Loop", while: $condition, subflow: $flow};
+
+def shell($cmd): {type: "Shell", cmd: $cmd};
+def shell($cmd; $options): {type: "Shell", cmd: $cmd} + $options;
+def fetch: {type: "Fetch"};
+def fetch($path): {type: "Fetch", location: ($path | resolve_file)};
+def fetch($path; $options): fetch($path) + $options;
+def make_file: {type: "MakeFile"};
+def make_file($path): {type: "MakeFile", location: ($path | resolve_file)};
+def make_file($path; $options): make_file($path) + $options;
+def jq_ref($path): {type: "Jq", filter_ref: ($path | resolve_file)};
+def jq_code($code): {type: "Jq", filter_code: $code};
+def exec: {type: "Exec"};
+def exec_ref($path): {type: "Exec", flow_ref: ($path | resolve_file)};
+def exec_flow($flow): {type: "Exec", flow: $flow};
+
+# defined last, so that the definitions above still use jq's error/1
+def error($e): {type: "Error", error: $e};
